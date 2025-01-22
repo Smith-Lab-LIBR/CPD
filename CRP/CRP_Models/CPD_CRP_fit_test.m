@@ -74,12 +74,21 @@ for i = 1:length(DCM.field)
         elseif strcmp(field,'inverse_temp')
             pE.(field) = log(DCM.MDP.inverse_temp);             
             pC{i,i}    = 1;
+        elseif strcmp(field,'latent_lr')
+            pE.(field) = log(DCM.MDP.latent_lr);             
+            pC{i,i}    = 1;
         elseif strcmp(field,'reward_prior')
             pE.(field) = DCM.MDP.reward_prior     ;             
             pC{i,i}    = 0;         
         elseif strcmp(field,'alpha')
             pE.(field) = log(DCM.MDP.alpha)   ;             
             pC{i,i}    = 20;  
+        elseif strcmp(field,'decay')
+            pE.(field) = log(DCM.MDP.decay/(1-DCM.MDP.decay));             
+            pC{i,i}    = 2;
+        elseif strcmp(field,'forget_threshold')
+            pE.(field) = log(DCM.MDP.forget_threshold/(1-DCM.MDP.forget_threshold));             
+            pC{i,i}    = 2;          
         else
             pE.(field) = 0;      
             pC{i,i}    = prior_variance;
@@ -94,6 +103,8 @@ pC      = spm_cat(pC);
 M.L     = @(P,M,U,Y)spm_mdp_L(P,M,U,Y);  % log-likelihood function
 M.pE    = pE;                            % prior means (parameters)
 M.pC    = pC;                            % prior variance (parameters)
+M.model = DCM.model;
+M.decay_type = DCM.decay_type;
 
 
 % Variational Laplace
@@ -131,11 +142,17 @@ for i = 1:length(field)
     if strcmp(field{i},'reward_lr')
         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
     elseif strcmp(field{i},'inverse_temp')
-        params.(field{i}) = exp(P.(field{i}));           
+        params.(field{i}) = exp(P.(field{i}));  
+    elseif strcmp(field{i},'latent_lr')
+        params.(field{i}) = exp(P.(field{i}));
     elseif strcmp(field{i},'reward_prior')
         params.(field{i}) = P.(field{i});
     elseif strcmp(field{i},'alpha')
-         params.(field{i}) = exp(P.(field{i}));  
+         params.(field{i}) = exp(P.(field{i}));
+    elseif strcmp(field{i},'decay')
+         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
+    elseif strcmp(field{i},'forget_threshold')
+         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
     else
         mdp.(field{i}) = exp(P.(field{i}));
     end
@@ -144,7 +161,8 @@ end
 
 trials = U;
 L = 0;
-action_probabilities = CPD_CRP_single_inference_expectation_age_decay(params, trials);    
+decay_type = M.decay_type;
+action_probabilities = M.model(params, trials, decay_type);    
 count = 0;
 average_accuracy = 0;
 average_action_probability = 0;

@@ -1,7 +1,7 @@
 % testing call
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
-function action_probs = CPD_latent_model(params, trials, test)
+function action_probs = CPD_latent_model(params, trials, test, decay_type)
 param_names = fieldnames(params);
 for k = 1:length(param_names)
     param_name = param_names{k};
@@ -17,6 +17,7 @@ choices = [];
 %sub_block_probabilities
 
 %% for testing %%
+
 if test == 1
     data_result = [0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,1,1,1,0,0,0];
     block_length = 1;
@@ -31,20 +32,36 @@ if test == 1
 else
     learning_rate = params.reward_lr;
     latent_learning_rate = params.latent_lr;
+    %latent_learning_rate_new = 0.6;
     latent_learning_rate_new = params.new_latent_lr;
+    %latent_learning_rate_existing = params.existing_latent_lr;
     inverse_temp = params.inverse_temp;
     reward_prior = params.reward_prior;
+    if isfield(params, 'decay')
+        decay_rate = params.decay;
+    end
+    if isfield(params, 'forget_threshold')
+        forget_threshold = params.forget_threshold;
+    else
+        forget_threshold = 0;
+    end
 
 end
 %%%%%%%%%%%%%%%%%%%
 %inverse_temp = 2;
 latent_states_distribution = [1]; % starts off with one 'real' latent state
-new_latent_states_distribution= [.9,.1]; % at the beginning the 'potential' new latent state starts with a probability of 0.1
+new_latent_states_distribution= [.5,.5]; % at the beginning the 'potential' new latent state starts with a probability of 0.1
 latent_state_rewards = [reward_prior, reward_prior, reward_prior];
 new_latent_state_rewards = [reward_prior, reward_prior, reward_prior;
 reward_prior,  reward_prior,  reward_prior];
 lr_coef = length(trials);
 lr_coef_max = length(trials);
+temporal_mass = zeros(1, 1);
+temporal_mass(1,1) = 1;
+new_temporal_mass = zeros(1, 2);
+new_temporal_mass(1,1) = .5;
+new_temporal_mass(1,2) = .5;
+timestep = 1;
 for trial = 1:length(trials)
     c = lr_coef/lr_coef_max;
     current_trial = trials{trial};
@@ -55,6 +72,40 @@ for trial = 1:length(trials)
     end
     trial_length = height(true_actions);
     results = current_trial(1,3);
+
+    %% Handle Decay %%
+    if strcmp(decay_type, "basic")
+        decay_rate = params.decay;
+        [latent_states_distribution, latent_state_rewards] = basic_decay(latent_states_distribution, latent_state_rewards, decay_rate, forget_threshold);
+        [new_latent_states_distribution, new_latent_state_rewards] = basic_decay(new_latent_states_distribution, new_latent_state_rewards, decay_rate, forget_threshold);
+        if length(new_latent_states_distribution) <= length(latent_states_distribution)
+            new_latent_state_rewards = latent_state_rewards; 
+            new_latent_states_distribution = latent_states_distribution;
+            new_state_mass = 1/(length(new_latent_states_distribution) + 1);
+            new_latent_states_distribution(new_latent_states_distribution > 0) = new_latent_states_distribution(new_latent_states_distribution > 0) * (1-new_state_mass);
+            new_temporal_mass = temporal_mass;
+            new_temporal_mass = [new_temporal_mass, zeros(size(new_temporal_mass, 1), 1)];
+            %add new prospective latent state
+            new_latent_state_rewards(end+1,:) = [reward_prior, reward_prior, reward_prior];
+            new_latent_states_distribution(end+1) = new_state_mass;
+        end
+    elseif strcmp(decay_type, "temporal")
+        decay_rate = params.decay;
+        [latent_states_distribution, latent_state_rewards, temporal_mass] = temporal_weighting_decay(decay_rate, temporal_mass, latent_state_rewards, forget_threshold);
+        [new_latent_states_distribution, new_latent_state_rewards, new_temporal_mass] = temporal_weighting_decay(decay_rate, new_temporal_mass, new_latent_state_rewards, forget_threshold);
+        if length(new_latent_states_distribution) <= length(latent_states_distribution)
+            new_latent_state_rewards = latent_state_rewards; 
+            new_latent_states_distribution = latent_states_distribution;
+            new_state_mass = 1/(length(new_latent_states_distribution) + 1);
+            new_latent_states_distribution(new_latent_states_distribution > 0) = new_latent_states_distribution(new_latent_states_distribution > 0) * (1-new_state_mass);
+            new_temporal_mass = temporal_mass;
+            new_temporal_mass = [new_temporal_mass, zeros(size(new_temporal_mass, 1), 1)];
+            %add new prospective latent state
+            new_latent_state_rewards(end+1,:) = [reward_prior, reward_prior, reward_prior];
+            new_latent_states_distribution(end+1) = new_state_mass;
+        end
+    end
+
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t,1).response;
         if ~isempty(results)
@@ -82,8 +133,8 @@ for trial = 1:length(trials)
 
             if trial_length == 1               
                 % update latent_state_distribution
-                latent_states_distribution = adjust_latent_distribution(latent_states_distribution, reward_probabilities, true_action, latent_learning_rate,0, 1);
-                new_latent_states_distribution = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, true_action, latent_learning_rate,latent_learning_rate_new, 1);
+                latent_states_distribution = adjust_latent_distribution(latent_states_distribution, reward_probabilities, true_action, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
+                new_latent_states_distribution = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, true_action, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
                 [maxi ,idx] = max(new_latent_states_distribution);
                 outcome = outcome - 1;
                 outcome(true_action + 1) = 1;
@@ -96,7 +147,7 @@ for trial = 1:length(trials)
                 latent_state_rewards(latent_state_idx,:) = latent_state_rewards(latent_state_idx,:) +  prediction_error;
                 new_latent_state_rewards(new_latent_state_idx,:) = new_latent_state_rewards(new_latent_state_idx,:) + prediction_error_next;
                 %new_latent_state_rewards(1:end-1,:) = new_latent_state_rewards(1:end-1,:) + new_latent_states_distribution(1:end-1)' .* prediction_error_next;
-             
+                timestep = timestep + 1;
             end
          
         else
@@ -122,8 +173,8 @@ for trial = 1:length(trials)
                 choice = choice - 1; % match the coding of choices from task
                 choices{trial}(t,:) = choice;
                 % update latent_state_distribution
-                latent_states_distribution = adjust_latent_distribution(latent_states_distribution, reward_probabilities, result, latent_learning_rate,0, 1);
-                new_latent_states_distribution = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, result, latent_learning_rate,latent_learning_rate_new, 1);
+                latent_states_distribution = adjust_latent_distribution(latent_states_distribution, reward_probabilities, result, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
+                new_latent_states_distribution = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, result, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
                 [maxi ,idx] = max(new_latent_states_distribution);
                 
                 columnIndices = true(1, 3);
@@ -136,6 +187,7 @@ for trial = 1:length(trials)
                 % update latent state reward predictions weighted by latent state distribution
                 latent_state_rewards(latent_state_idx,columnIndices) = latent_state_rewards(latent_state_idx,columnIndices) +  prediction_error;
                 new_latent_state_rewards(new_latent_state_idx,columnIndices) = new_latent_state_rewards(new_latent_state_idx,columnIndices) + prediction_error_next;
+                timestep = timestep + 1;
                 %new_latent_state_rewards(1:end-1,columnIndices) = new_latent_state_rewards(1:end-1,columnIndices) + new_latent_states_distribution(1:end-1)' .* prediction_error_next;
             else 
        
@@ -145,15 +197,21 @@ for trial = 1:length(trials)
 
 
         %if the prospective latent state is the max, we sub out our current latent state distribution and replace it with the new one
-        if idx == length(new_latent_states_distribution)
+         if t == trial_length && idx == length(new_latent_states_distribution)
             latent_states_distribution = new_latent_states_distribution;
+            temporal_mass = new_temporal_mass;
+            %latent_states_distribution(end+1) = new_latent_states_distribution(end);
+            %latent_states_distribution(1:end-1) = latent_states_distribution(1:end-1) - latent_states_distribution(1:end-1) * (latent_states_distribution(end));
             %latent_state_rewards(end+1,:) = new_latent_state_rewards(end,:);%[reward_prior_1, reward_prior_2, reward_prior_3];
+            %new_latent_states_distribution = latent_states_distribution;
             latent_state_rewards = new_latent_state_rewards;
-            new_latent_states_distribution(new_latent_states_distribution > 0) = new_latent_states_distribution(new_latent_states_distribution > 0) - .1/length(new_latent_states_distribution(new_latent_states_distribution > 0));
-
+            new_state_mass = 1/(length(new_latent_states_distribution) + 1);
+            new_latent_states_distribution(new_latent_states_distribution > 0) = new_latent_states_distribution(new_latent_states_distribution > 0) * (1-new_state_mass);
+            new_temporal_mass = [new_temporal_mass, zeros(size(new_temporal_mass, 1), 1)];
             %add new prospective latent state
             new_latent_state_rewards(end+1,:) = [reward_prior, reward_prior, reward_prior];
-            new_latent_states_distribution(end+1) = .1;
+            new_latent_states_distribution(end+1) = new_state_mass;
+            new_temporal_mass(timestep,size(new_temporal_mass, 2)) = new_state_mass;
             test = 1;
            % lr_coef = lr_coef_max;
         end
@@ -204,72 +262,3 @@ function log_sums_bf = getBayesFactorsAggregation(models, data)
 
 end
 
-function latent_state_distribution = adjust_latent_distribution(latent_state_distribution, model, action, lr,lr_new ,last_t)
-
-    if last_t == 1 % if the choice was correct   
-        model_evidence = model(:,action + 1);
-    else % in the case of a multiple timestep trial, i.e first choice is not correct
-        model_evidence = 1 - model(:,action + 1); % how wrong was each model
-    end
-    % get the maximum model evidence
-    [max_me, max_me_idx] = max(model_evidence);
-    model_evidence = model_evidence';
-
-    % update probability of the latent state with maximum model evidence.
-    % This is essentially taking a max - assuming that the most likely
-    % latent state was the correct one
-    if max_me_idx == length(model_evidence) && lr_new ~= 0
-        delta = lr_new * (1 - latent_state_distribution(max_me_idx));
-    else
-        delta = lr * (1 - latent_state_distribution(max_me_idx));
-    end
-    latent_state_distribution(max_me_idx) = latent_state_distribution(max_me_idx) + delta;
-
-    % store max latent state distribution
-    max_latent_state = latent_state_distribution(max_me_idx);
-
-    % take it out so we can more easily change the other latent states
-    latent_state_distribution(max_me_idx) = [];
-    model_evidence(max_me_idx) = [];
-
-    %% remove added probability mass from the other latent states (proportional to their relative model evidence compared to the max model evidence) %%
-  
-    % get ratios    
-    if length(model_evidence) > 1
-        model_evidence = 1 - model_evidence;
-    end
-    me_sum = sum(model_evidence);
-    me_ratios = (model_evidence+exp(-16))/(me_sum+exp(-16));
-    % partition delta (amount added to max latent state) with these ratios
-    mass_deltas = delta .* me_ratios;
-
-    % subtract partitions
-    latent_state_distribution = latent_state_distribution - mass_deltas;
-    
-    
-    % Some numbers might be negative. We need to normalize. To be
-    % fancy we could normalize in a 'proportional' way where the mass
-    % added back to the negative values to make the 0 is proportionally subtracted
-    % from the non-negative values based on their model evidence ratios. I
-    % dont think this is really needed though, but worth maybe looking
-    % into at a later point. This will need to be 'recursive' as subtracting
-    % probability mass might create new negative probabilities
-
-    while any(latent_state_distribution < 0)
-        
-        % get the mass we will have to take away from the non-negative states
-        summed_negative_values = sum(latent_state_distribution(latent_state_distribution < 0));
-
-        % set the negative states to 0 
-        latent_state_distribution(latent_state_distribution < 0) = 0;
-     
-        % subtract the added mass from non-negative states
-        latent_state_distribution(latent_state_distribution > 0) = latent_state_distribution(latent_state_distribution > 0) + summed_negative_values/length(latent_state_distribution(latent_state_distribution > 0));
-        test = 1;
-    end
-
-   
-    % We have finished working with the 'sub-max' part of the latent state distribtuion add back in the max latent state
-    latent_state_distribution = [latent_state_distribution(1:max_me_idx-1), max_latent_state, latent_state_distribution(max_me_idx:end)];
-    test = 1;
-end

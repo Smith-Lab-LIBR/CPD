@@ -181,7 +181,7 @@
 % try
 global newton_count;
 newton_count = 0;
-main_CRP('AT668')
+main_CRP('AA181')
 
 function [] = main_CRP(subject_id)
     seed = subject_id(end-2:end);
@@ -210,10 +210,12 @@ function [] = main_CRP(subject_id)
     %%%%% Set Priors %%%%%%%
     reward_lr = 0.1;
      latent_lr = 0.5;
-     new_latent_lr = 0.9;
+     new_latent_lr = 0.1;
     inverse_temp = 1;
     reward_prior = 0;
     existing_latent_lr = 0.2;
+    decay = 0.8;
+    forget_threshold = 0.05;
     %alpha = 1; 
     
     %% Fit each subject and keep the list of Free energy, 
@@ -224,17 +226,21 @@ function [] = main_CRP(subject_id)
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
     Accuracy_CRP_model = [];
+    decay_type = "temporal";
     DCM.MDP.reward_lr = reward_lr;
     DCM.MDP.latent_lr = latent_lr;
     DCM.MDP.new_latent_lr = new_latent_lr;
-    DCM.MDP.existing_latent_lr = existing_latent_lr;
+    %DCM.MDP.existing_latent_lr = existing_latent_lr;
     DCM.MDP.inverse_temp = inverse_temp;
     DCM.MDP.reward_prior = reward_prior;
+    DCM.MDP.decay = decay;
+    DCM.MDP.forget_threshold = forget_threshold; 
     %DCM.MDP.alpha = alpha; 
-    DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'new_latent_lr' 'existing_latent_lr'}; % Parameter field
+    DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'new_latent_lr', 'decay', 'forget_threshold'}; % Parameter field
     DCM.U = MDP.trials;
     DCM.Y = 0;
-    DCM.model = @CPD_latent_multi_inference_max;
+    DCM.decay_type = decay_type;
+    DCM.model = @CPD_latent_multi_inference_expectation;
     CPD_fit_output= CPD_latent_fit(DCM);
     
     output_params = [1/(1+exp(-CPD_fit_output.Ep.reward_lr)) 1/(1+exp(-CPD_fit_output.Ep.latent_lr)) 1/(1+exp(-CPD_fit_output.Ep.new_latent_lr)) exp(CPD_fit_output.Ep.inverse_temp) CPD_fit_output.Ep.reward_prior exp(CPD_fit_output.Ep.alpha)];

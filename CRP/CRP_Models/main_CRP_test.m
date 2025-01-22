@@ -182,8 +182,8 @@
 function [] = main_CRP_test(subject_id)
 
     if ispc
-        root = 'C:/';
-        %root = 'L:/';
+        %root = 'C:/';
+        root = 'L:/';
     elseif ismac
         root = '/Volumes/labs/';
     elseif isunix 
@@ -216,11 +216,13 @@ function [] = main_CRP_test(subject_id)
     % %cd("/media/labs/rsmith/lab-members/nli/CPD/matlab_scripts/")
     %%%%% Set Priors %%%%%%%
     reward_lr = 0.1;
-    % latent_lr = 0.5;
+    latent_lr = 1;
     % new_latent_lr = 0.1;
     inverse_temp = 2;
     reward_prior = 0;
-    alpha = 3   ; 
+    alpha = 1   ; 
+    decay = 0.8;
+    forget_threshold = 0.05;
     
     %% Fit each subject and keep the list of Free energy, 
     % all_sub_ids = readtable('/media/labs/rsmith/lab-members/nli/CPD_updated/T475_list.csv');
@@ -231,14 +233,20 @@ function [] = main_CRP_test(subject_id)
     ActionAccu_CRP_model = [];
     Accuracy_CRP_model = [];
     DCM.MDP.reward_lr = reward_lr;
+    decay_type = "";
     % DCM.MDP.latent_lr = latent_lr;
     % DCM.MDP.new_latent_lr = new_latent_lr;
     DCM.MDP.inverse_temp = inverse_temp;
     DCM.MDP.reward_prior = reward_prior;
     DCM.MDP.alpha = alpha; 
-    DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'alpha'}; % Parameter field
+    DCM.MDP.decay = decay;
+    DCM.MDP.latent_lr = latent_lr;
+    DCM.MDP.forget_threshold = forget_threshold; 
+    DCM.field  = {'reward_lr', 'latent_lr', 'inverse_temp' 'reward_prior' 'alpha', 'decay', 'forget_threshold'}; % Parameter field
     DCM.U = MDP.trials;
+    DCM.decay_type = decay_type;
     DCM.Y = 0;
+    DCM.model = @CPD_CRP_single_inference_max;
     CPD_fit_output= CPD_CRP_fit_test(DCM);
     output_params = [1/(1+exp(-CPD_fit_output.Ep.reward_lr)) exp(CPD_fit_output.Ep.inverse_temp) CPD_fit_output.Ep.reward_prior exp(CPD_fit_output.Ep.alpha)];
     

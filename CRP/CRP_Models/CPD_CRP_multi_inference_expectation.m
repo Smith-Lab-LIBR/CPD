@@ -1,18 +1,29 @@
-function action_probs = CPD_CRP_multi_inference_expectation(params, trials)
+function action_probs = CPD_CRP_multi_inference_expectation(params, trials, decay_type)
 rng(1);
 choices = [];
 
 learning_rate = params.reward_lr;
 inverse_temp = params.inverse_temp;
 reward_prior = params.reward_prior;
+latent_lr = params.latent_lr;
 alpha = params.alpha;
+if isfield(params, 'decay')
+    decay_rate = params.decay;
+end
+if isfield(params, 'forget_threshold')
+    forget_threshold = params.forget_threshold;
+else
+    forget_threshold = 0;
+end
 
 % loop over each trial
 latent_states_distribution = [1];
 latent_state_rewards = [reward_prior, reward_prior, reward_prior];
 latent_state_counts = [1];
 t_latent_state_counts = 1;
-
+temporal_mass = zeros(1, 1);
+temporal_mass(1,1) = 1;
+timestep = 1;
 % retrieve true action/s and results
 for trial = 1:length(trials)
     current_trial = trials{trial};
@@ -25,6 +36,16 @@ for trial = 1:length(trials)
     trial_length = height(true_actions);
     correct_choices = current_trial(1, 3);
     
+    if strcmp(decay_type, "basic")
+        decay_rate = params.decay;
+        [latent_state_counts, latent_state_rewards] = crp_basic_decay(latent_state_counts, latent_state_rewards, decay_rate, forget_threshold);
+        t_latent_state_counts = sum(latent_state_counts);
+    elseif strcmp(decay_type, "temporal")
+        decay_rate = params.decay;
+        [latent_state_counts, latent_state_rewards, temporal_mass, total_counts] = crp_temporal_weighting_decay(decay_rate, temporal_mass, latent_state_rewards, forget_threshold);
+        t_latent_state_counts = total_counts;
+    end
+
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t, 1).response;
         if ~isempty(correct_choices)
@@ -73,9 +94,14 @@ for trial = 1:length(trials)
                 prediction_error = learning_rate*(-1 - latent_state_rewards(:, true_action + 1));
                 latent_state_rewards(:, true_action + 1) = latent_state_rewards(:, true_action + 1) + post' .* prediction_error;
 
-                latent_state_counts = latent_state_counts + post;
-                t_latent_state_counts = t_latent_state_counts + 1;
-            
+                latent_state_counts = latent_state_counts + latent_lr* post;
+                t_latent_state_counts = t_latent_state_counts + latent_lr* 1;
+                if timestep > size(temporal_mass, 1)
+                    temporal_mass(timestep,1:length(post)) = zeros(1,length(post));
+                end
+                v = merge_vectors(temporal_mass(timestep,:), latent_lr* post);
+                temporal_mass(timestep,1:length(v)) = v; 
+                timestep = timestep + 1;            
             else 
                 CRP_likelihoods = softmax(latent_state_rewards);
                 post = new_latent_states_distribution.*CRP_likelihoods(:,true_action+1)';
@@ -98,16 +124,20 @@ for trial = 1:length(trials)
                 prediction_error = learning_rate * (outcome - latent_state_rewards);
                 latent_state_rewards = latent_state_rewards +  post' .* prediction_error;
 
-                latent_state_counts = latent_state_counts + post;
-                t_latent_state_counts = t_latent_state_counts + 1;
+                latent_state_counts = latent_state_counts + latent_lr* post;
+                t_latent_state_counts = t_latent_state_counts + latent_lr* 1;
+                if timestep > size(temporal_mass, 1)
+                    temporal_mass(timestep,1:length(post)) = zeros(1,length(post));
+                end
+                v = merge_vectors(temporal_mass(timestep,:), latent_lr* post);
+                temporal_mass(timestep,1:length(v)) = v; 
+                timestep = timestep + 1;
+                
             end
     
         else % this is about the second choice (as the first choice at t = 1 was incorrect)
-            if ~isempty(correct_choice)
-                
+            if ~isempty(correct_choice)            
                 % CRP prior 
-                
-
                 previous_result_idx = true_actions(t-1,1).response + 1;
                 outcome = zeros(1,3);   
                 outcome = outcome - 1;
@@ -146,10 +176,15 @@ for trial = 1:length(trials)
                 end
                 prediction_error = learning_rate * (outcome(:, columnIndices) - latent_state_rewards(:,columnIndices));
                 % update latent state reward predictions weighted by latent state distribution
-                latent_state_rewards(:,columnIndices) = latent_state_rewards(:,columnIndices) + post' .* prediction_error;
-                
-                latent_state_counts = latent_state_counts + post;
-                t_latent_state_counts = t_latent_state_counts + 1;
+                latent_state_rewards(:,columnIndices) = latent_state_rewards(:,columnIndices) + post' .* prediction_error;               
+                latent_state_counts = latent_state_counts + latent_lr* post;
+                t_latent_state_counts = t_latent_state_counts + latent_lr* 1;
+                if timestep > size(temporal_mass, 1)
+                    temporal_mass(timestep,1:length(post)) = zeros(1,length(post));
+                end
+                v = merge_vectors(temporal_mass(timestep,:), latent_lr* post);
+                temporal_mass(timestep,1:length(v)) = v; 
+                timestep = timestep + 1;
             end
         end
     end
@@ -242,4 +277,15 @@ function matrix = softmax_rows(matrix)
     matrix = bsxfun(@rdivide, exponents, row_sums);
 
 end 
+
+function v = merge_vectors(vec1, vec2)
+
+    maxLength = max(length(vec1), length(vec2));
+    % Extend both vectors to the maximum length
+    vec1_padded = [vec1, zeros(1, maxLength - length(vec1))];
+    vec2_padded = [vec2, zeros(1, maxLength - length(vec2))];
+    
+    % Sum the vectors
+    v = vec1_padded + vec2_padded;
+end
 

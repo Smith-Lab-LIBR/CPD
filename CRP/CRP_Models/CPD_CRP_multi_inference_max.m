@@ -1,18 +1,29 @@
-function action_probs = CPD_CRP_multi_inference_max(params, trials)
+function action_probs = CPD_CRP_multi_inference_max(params, trials, decay_type)
 rng(1);
 choices = [];
 
 learning_rate = params.reward_lr;
 inverse_temp = params.inverse_temp;
 reward_prior = params.reward_prior;
+latent_lr = params.latent_lr;
 alpha = params.alpha;
+if isfield(params, 'decay')
+    decay_rate = params.decay;
+end
+if isfield(params, 'forget_threshold')
+    forget_threshold = params.forget_threshold;
+else
+    forget_threshold = 0;
+end
 
 % loop over each trial
 latent_states_distribution = [1];
 latent_state_rewards = [reward_prior, reward_prior, reward_prior];
 latent_state_counts = [1];
 t_latent_state_counts = 1;
-
+temporal_mass = zeros(1, 1);
+temporal_mass(1,1) = 1;
+timestep = 1;
 % retrieve true action/s and results
 for trial = 1:length(trials)
     current_trial = trials{trial};
@@ -24,6 +35,16 @@ for trial = 1:length(trials)
     end
     trial_length = height(true_actions);
     correct_choices = current_trial(1, 3);
+    
+    if strcmp(decay_type, "basic")
+        decay_rate = params.decay;
+        [latent_state_counts, latent_state_rewards] = crp_basic_decay(latent_state_counts, latent_state_rewards, decay_rate, forget_threshold);
+        t_latent_state_counts = sum(latent_state_counts);
+    elseif strcmp(decay_type, "temporal")
+        decay_rate = params.decay;
+        [latent_state_counts, latent_state_rewards, temporal_mass, total_counts] = crp_temporal_weighting_decay(decay_rate, temporal_mass, latent_state_rewards, forget_threshold);
+        t_latent_state_counts = total_counts;
+    end
     
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t, 1).response;
@@ -70,8 +91,14 @@ for trial = 1:length(trials)
                     latent_state_counts(end+1) = 0;
                 end
 
-                latent_state_counts(new_CRP_idx) = latent_state_counts(new_CRP_idx) + 1;
-                t_latent_state_counts = t_latent_state_counts + 1;
+                latent_state_counts(new_CRP_idx) = latent_state_counts(new_CRP_idx) + latent_lr * 1;
+                t_latent_state_counts = t_latent_state_counts + latent_lr * 1;
+                if timestep > size(temporal_mass, 1)
+                    temporal_mass(timestep,1:length(latent_state_counts))= zeros(1,length(latent_state_counts));
+                end
+                v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
+                temporal_mass(timestep,new_CRP_idx) = v; 
+                timestep = timestep + 1;
             
             else 
                 CRP_likelihoods = softmax_rows(latent_state_rewards);
@@ -93,8 +120,14 @@ for trial = 1:length(trials)
                     
                 end
 
-                latent_state_counts(new_CRP_idx) = latent_state_counts(new_CRP_idx) + 1;
-                t_latent_state_counts = t_latent_state_counts + 1;
+                latent_state_counts(new_CRP_idx) = latent_state_counts(new_CRP_idx) + latent_lr * 1;
+                t_latent_state_counts = t_latent_state_counts + latent_lr * 1;
+                if timestep > size(temporal_mass, 1)
+                    temporal_mass(timestep,1:length(latent_state_counts))= zeros(1,length(latent_state_counts));
+                end
+                v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
+                temporal_mass(timestep,new_CRP_idx) = v; 
+                timestep = timestep + 1;
             end
     
         else % this is about the second choice (as the first choice at t = 1 was incorrect)
@@ -144,8 +177,14 @@ for trial = 1:length(trials)
                     latent_state_counts(end+1) = 0;
                 end
 
-                latent_state_counts(new_CRP_idx) = latent_state_counts(new_CRP_idx) + 1;
-                t_latent_state_counts = t_latent_state_counts + 1;
+                latent_state_counts(new_CRP_idx) = latent_state_counts(new_CRP_idx) + latent_lr * 1;
+                t_latent_state_counts = t_latent_state_counts + latent_lr * 1;
+                if timestep > size(temporal_mass, 1)
+                    temporal_mass(timestep,1:length(latent_state_counts))= zeros(1,length(latent_state_counts));
+                end
+                v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
+                temporal_mass(timestep,new_CRP_idx) = v; 
+                timestep = timestep + 1;
             end
         end
     end
