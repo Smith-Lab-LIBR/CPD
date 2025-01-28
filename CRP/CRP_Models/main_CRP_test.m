@@ -178,29 +178,26 @@
 
 % error_messages = {};
 
-% try
-function [] = main_CRP_test(subject_id)
+%
 
+function [] = main_CRP_test(subject_id)
+    seed = subject_id(end-2:end);
+    seed = str2double(seed);
+    rng(seed);
+    
     if ispc
         %root = 'C:/';
         root = 'L:/';
-    elseif ismac
-        root = '/Volumes/labs/';
     elseif isunix 
         root = '/media/labs/';  
     end
-
-    seed = subject_id(end-2:end);
-    seed = str2double(seed);
-    rng(seed)
 
     % for i = 1:numel(all_sub_ids)
     %     subject_id = all_sub_ids{i};
       % try 
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    % data_dir = "/media/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    data_dir = [root 'rsmith/lab-members/nli/CPD_updated/Individual_file_mat'];
-    filename = fullfile(data_dir, [subject_id '_trials_CPD_indv.mat']);
+     data_dir = [root 'rsmith/lab-members/nli/CPD_updated/Individual_file_mat'];
+     filename = fullfile(data_dir, [subject_id '_trials_CPD_indv.mat']);
     load(filename);
 
     trial_num = 1;
@@ -210,145 +207,170 @@ function [] = main_CRP_test(subject_id)
     end
     %%%%%%%%%%%%%%
     addpath([root 'rsmith/lab-members/clavalley/MATLAB/spm12/']);
-    addpath([root 'rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/']); 
+    addpath([root 'rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/']);  
     % addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/');
     % addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/'); 
     % %cd("/media/labs/rsmith/lab-members/nli/CPD/matlab_scripts/")
     %%%%% Set Priors %%%%%%%
     reward_lr = 0.1;
-    latent_lr = 1;
-    % new_latent_lr = 0.1;
-    inverse_temp = 2;
+     latent_lr = 0.5;
+     alpha = 1;
+    inverse_temp = 1;
     reward_prior = 0;
-    alpha = 1   ; 
     decay = 0.8;
     forget_threshold = 0.05;
+    %alpha = 1; 
     
     %% Fit each subject and keep the list of Free energy, 
     % all_sub_ids = readtable('/media/labs/rsmith/lab-members/nli/CPD_updated/T475_list.csv');
     % all_sub_ids = table2cell(all_sub_ids);
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
+    outer_fit_list = {@CPD_CRP_multi_inference_expectation, @CPD_CRP_multi_inference_max, @CPD_CRP_single_inference_expectation, @CPD_CRP_single_inference_max};
+    inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic', 'temporal'};
     F_CRP_model = [];
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
     Accuracy_CRP_model = [];
-    DCM.MDP.reward_lr = reward_lr;
-    decay_type = "";
-    % DCM.MDP.latent_lr = latent_lr;
-    % DCM.MDP.new_latent_lr = new_latent_lr;
-    DCM.MDP.inverse_temp = inverse_temp;
-    DCM.MDP.reward_prior = reward_prior;
-    DCM.MDP.alpha = alpha; 
-    DCM.MDP.decay = decay;
-    DCM.MDP.latent_lr = latent_lr;
-    DCM.MDP.forget_threshold = forget_threshold; 
-    DCM.field  = {'reward_lr', 'latent_lr', 'inverse_temp' 'reward_prior' 'alpha', 'decay', 'forget_threshold'}; % Parameter field
-    DCM.U = MDP.trials;
-    DCM.decay_type = decay_type;
-    DCM.Y = 0;
-    DCM.model = @CPD_CRP_single_inference_max;
-    CPD_fit_output= CPD_CRP_fit_test(DCM);
-    output_params = [1/(1+exp(-CPD_fit_output.Ep.reward_lr)) exp(CPD_fit_output.Ep.inverse_temp) CPD_fit_output.Ep.reward_prior exp(CPD_fit_output.Ep.alpha)];
-    
-    % we have the best fit model parameters. Simulate the task one more time to
-    % get the average action probability and accuracy with these best-fit
-    % parameters
-    
-    params.reward_lr = output_params(1);
-    % params.latent_lr = output_params(2);
-    % params.new_latent_lr = output_params(3);
-    params.inverse_temp = output_params(2);
-    params.reward_prior = output_params(3);
-    params.alpha = output_params(4);
+    for i = 1:length(outer_fit_list)
+        model_handle = outer_fit_list{i};
+        for j = 1:length(inner_fit_list)
+            if j == 1
+                decay_type = "";
+            else
+                decay_type = inner_fit_list{j};
+            end
 
-    
-    % rerun model a final time
-    L = 0;
-    action_probabilities = CRP_RW_Basic_model(params, trials, 0); 
-    count = 0;
-    average_accuracy = 0;
-    average_action_probability = 0;
-    accuracy_count = 0;
-    % compare action probabilities returned by the model to actual actions
-    % taken by participant (as we do in Loss function in CPD_fit
-    for t = 1:length(trials)
-        trial = trials{t};
-        responses = trial.response;
-        first_choice = responses(2);
-        if height(trial) > 2       
-            second_choice = responses(3);
-            L = L + log(action_probabilities{t}(1,first_choice + 1) + eps)/2;
-            L = L + log(action_probabilities{t}(2,second_choice + 1) + eps)/2;
-            average_action_probability = average_action_probability + action_probabilities{t}(1,first_choice + 1);
-            [maxi, idx_first] = max(action_probabilities{t}(1,:));
-            if idx_first == first_choice +1
-                average_accuracy = average_accuracy + 1;
+            DCM.MDP.reward_lr = reward_lr;
+            DCM.MDP.latent_lr = latent_lr;
+            DCM.MDP.alpha = alpha;
+            %DCM.MDP.existing_latent_lr = existing_latent_lr;
+            DCM.MDP.inverse_temp = inverse_temp;
+            DCM.MDP.reward_prior = reward_prior;
+            DCM.model = model_handle;
+            if j == 1
+                 DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha'}; % Parameter field
+                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
+                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_csv/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
+            elseif j == 2 || j == 3
+                DCM.MDP.decay = decay;
+                DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha', 'decay'}; % Parameter field
+                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), decay_type);
+                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_csv/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type);
+            else
+                DCM.MDP.decay = decay;
+                DCM.MDP.forget_threshold = forget_threshold; 
+                DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha', 'decay', 'forget_threshold'}; % Parameter field
+                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s_%s_forget.mat'], subject_id, func2str(DCM.model), decay_type);
+                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_csv/%s_individual_%s_%s_forget.csv'], subject_id, func2str(DCM.model), decay_type);
             end
-            accuracy_count = accuracy_count +1;
-            count = count + 1;
-            average_action_probability = average_action_probability + action_probabilities{t}(2,second_choice + 1);
-            [maxi, idx_first] = max(action_probabilities{t}(2,:));
-             if idx_first == second_choice +1
-                average_accuracy = average_accuracy + 1;
-             end
-            count = count + 1;
-             accuracy_count = accuracy_count +1;
-        else
-            Likelihood = log(action_probabilities{t}(1,first_choice + 1) + eps);
-            L = L + Likelihood;
-            ap = action_probabilities{t}(1,first_choice + 1);
-            [maxi, idx_first] = max(action_probabilities{t}(1,:));
-             if idx_first == first_choice +1
-                average_accuracy = average_accuracy + 1;
+
+            DCM.U = MDP.trials;
+            DCM.Y = 0;
+            DCM.decay_type = decay_type;
+            CPD_fit_output= CPD_CRP_fit_test(DCM);
+            
+            % we have the best fit model parameters. Simulate the task one more time to
+            % get the average action probability and accuracy with these best-fit
+            % parameters
+            if isfield(CPD_fit_output.Ep, 'reward_lr')
+                params.reward_lr = 1/(1+exp(-CPD_fit_output.Ep.reward_lr));
             end
-            average_action_probability = average_action_probability + ap ;
-            count = count + 1;
-             accuracy_count = accuracy_count +1;
-    
+            if isfield(CPD_fit_output.Ep, 'inverse_temp')
+                params.inverse_temp = exp(CPD_fit_output.Ep.inverse_temp);
+            end
+            if isfield(CPD_fit_output.Ep, 'reward_prior')
+                params.reward_prior = CPD_fit_output.Ep.reward_prior;
+            end
+            if isfield(CPD_fit_output.Ep, 'latent_lr')
+                params.latent_lr = 1/(1+exp(-CPD_fit_output.Ep.latent_lr));
+            end
+            if isfield(CPD_fit_output.Ep, 'alpha')
+                params.alpha = exp(CPD_fit_output.Ep.alpha);
+            end
+            if isfield(CPD_fit_output.Ep, 'decay')
+                params.decay = 1/(1+exp(-CPD_fit_output.Ep.decay)); 
+            end
+            if isfield(CPD_fit_output.Ep, 'forget_threshold')
+                params.forget_threshold = 1/(1+exp(-CPD_fit_output.Ep.forget_threshold)); 
+            end
+        
+            % rerun model a final time
+            L = 0;
+            action_probabilities = DCM.model(params, trials, decay_type); 
+            count = 0;
+            average_accuracy = 0;
+            average_action_probability = 0;
+            accuracy_count = 0;
+            % compare action probabilities returned by the model to actual actions
+            % taken by participant (as we do in Loss function in CPD_fit
+            %rng(1)
+            for t = 1:length(trials)
+                trial = trials{t};
+                responses = trial.response;
+                first_choice = responses(2);
+                if height(trial) > 2       
+                    second_choice = responses(3);
+                    L = L + log(action_probabilities{t}(1,first_choice + 1) + eps)/2;
+                    L = L + log(action_probabilities{t}(2,second_choice + 1) + eps)/2;
+                    average_action_probability = average_action_probability + action_probabilities{t}(1,first_choice + 1);
+                    [maxi, idx_first] = max(action_probabilities{t}(1,:));
+                    if idx_first == first_choice +1
+                        average_accuracy = average_accuracy + 1;
+                    end
+                    accuracy_count = accuracy_count +1;
+                    count = count + 1;
+                    average_action_probability = average_action_probability + action_probabilities{t}(2,second_choice + 1);
+                    [maxi, idx_first] = max(action_probabilities{t}(2,:));
+                     if idx_first == second_choice +1
+                        average_accuracy = average_accuracy + 1;
+                     end
+                    count = count + 1;
+                     accuracy_count = accuracy_count +1;
+                else
+                    Likelihood = log(action_probabilities{t}(1,first_choice + 1) + eps);
+                    L = L + Likelihood;
+                    ap = action_probabilities{t}(1,first_choice + 1);
+                    [maxi, idx_first] = max(action_probabilities{t}(1,:));
+                     if idx_first == first_choice +1
+                        average_accuracy = average_accuracy + 1;
+                    end
+                    average_action_probability = average_action_probability + ap ;
+                    count = count + 1;
+                     accuracy_count = accuracy_count +1;
+            
+                end
+            end
+            
+            %These are the final values. 
+            action_accuracy = average_action_probability/count;
+            accuracy = average_accuracy/accuracy_count;
+            
+            fprintf('Final LL: %f \n',L)
+            fprintf('Final Average choice probability: %f \n',action_accuracy)
+            fprintf('Final Average Accuracy: %f \n',accuracy)          
+          
+            save(file_name)
+             output.subject = subject_id;
+            output.reward_lr = params.reward_lr;
+            output.latent_lr = params.latent_lr;
+            output.alpha= params.alpha;
+            output.inverse_temp = params.inverse_temp;
+            output.reward_prior = params.reward_prior;
+            if isfield(params, 'decay')
+                output.decay = params.decay;
+            end
+            if isfield(params, 'forget_threshold')
+                output.froget_threshold = params.forget_threshold;
+            end
+            
+            output.accuracy = accuracy;
+            output.action_accuracy = action_accuracy;
+            output.LL = L;
+            output.free_energy = CPD_fit_output.F; 
+        
+        writetable(struct2table(output), filename);
         end
     end
-    
-    %These are the final values. 
-    action_accuracy = average_action_probability/count;
-    accuracy = average_accuracy/accuracy_count;
-    
-    fprintf('Final LL: %f \n',L)
-    fprintf('Final Average choice probability: %f \n',action_accuracy)
-    fprintf('Final Average Accuracy: %f \n',accuracy)
-    
-    %% Store values to the subject
-    
-    F_CRP_model = [F_CRP_model; cellstr(subject_id), CPD_fit_output.F];
-    LL_CRP_model = [LL_CRP_model; cellstr(subject_id), L];
-    ActionAccu_CRP_model = [ActionAccu_CRP_model; cellstr(subject_id), action_accuracy];
-    Accuracy_CRP_model = [Accuracy_CRP_model; cellstr(subject_id), accuracy];
-
-    % file_name = sprintf('/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Output_Individual_mat_for_all_models/Output_Individual_mat_CRP/%s_individual.mat', subject_id);
-    file_name = sprintf('/media/labs/rsmith/lab-members/nli/CPD_updated/Output_Individual_mat_for_all_models/Output_Individual_mat_CRP/%s_individual_CRP.mat', subject_id);
-    save(file_name)
-    output.subject = subject_id;
-    output.reward_lr = output_params(1);
-    %output(i).latent_lr = CPD_fit_output.Ep.latent_lr;
-    %output(i).new_latent_lr = CPD_fit_output.Ep.new_latent_lr;
-    output.inverse_temp = output_params(2);
-    output.reward_prior = output_params(3);
-    output.alpha = output_params(4);
-    output.accuracy = accuracy;
-    output.action_accuracy = action_accuracy;
-    output.LL = L;
-    output.free_energy = CPD_fit_output.F; 
-
-  % catch ME
-    % error_messages{end+1} = sprintf('An unexpected error occurred for subject %s: %s\n', subject_id, ME.message);
-      
-  % end
-% end
-
-
-% filename = sprintf('/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Output_Individual_csv_for_all_models/Output_Individual_csv_CRP/%s_individual.csv', subject_id);
-filename = sprintf('/media/labs/rsmith/lab-members/nli/CPD_updated/Output_Individual_csv_for_all_models/Output_Individual_csv_CRP/%s_individual_CRP.csv', subject_id);
-
-writetable(struct2table(output), filename);
 end
 % catch ME
     % error_messages{end+1} = sprintf('An unexpected error occurred: %s\n', subject_id, ME.message);

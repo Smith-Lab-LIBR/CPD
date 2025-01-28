@@ -1,6 +1,6 @@
 % get probabilities of true action for each trial 
 
-function action_probs = CPD_RL_kappa_model(params, trials, test)
+function action_probs = CPD_RL_kappa_model(params, trials, decay_type)
 rng(1);
 % parameters assignment
 choices = [];
@@ -16,6 +16,9 @@ inverse_temp = params.inverse_temp;
 reward_prior = params.reward_prior;
 kappa_prior = params.kappa_prior;
 eta  = params.eta;
+if isfield(params, 'decay')
+    decay_rate = params.decay;
+end
 
 
 % loop over each trial 
@@ -32,6 +35,11 @@ for trial = 1:length(trials)
     end
     trial_length = height(true_actions);
     correct_choices = current_trial(1,3);
+    
+    if strcmp(decay_type, "basic")
+        decay_rate = params.decay;
+        choice_rewards = rl_decay(choice_rewards, reward_prior, decay_rate);
+    end
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t, 1).response;
          if ~isempty(correct_choices)

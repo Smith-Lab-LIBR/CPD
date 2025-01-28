@@ -96,8 +96,8 @@ for trial = 1:length(trials)
                 if timestep > size(temporal_mass, 1)
                     temporal_mass(timestep,1:length(latent_state_counts))= zeros(1,length(latent_state_counts));
                 end
-                v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
-                temporal_mass(timestep,new_CRP_idx) = v; 
+                %v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
+                temporal_mass(timestep,new_CRP_idx) = latent_lr * 1;
                 timestep = timestep + 1;
             
             else 
@@ -125,8 +125,9 @@ for trial = 1:length(trials)
                 if timestep > size(temporal_mass, 1)
                     temporal_mass(timestep,1:length(latent_state_counts))= zeros(1,length(latent_state_counts));
                 end
-                v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
-                temporal_mass(timestep,new_CRP_idx) = v; 
+                
+                %v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
+                temporal_mass(timestep,new_CRP_idx) = latent_lr * 1; 
                 timestep = timestep + 1;
             end
     
@@ -182,8 +183,8 @@ for trial = 1:length(trials)
                 if timestep > size(temporal_mass, 1)
                     temporal_mass(timestep,1:length(latent_state_counts))= zeros(1,length(latent_state_counts));
                 end
-                v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
-                temporal_mass(timestep,new_CRP_idx) = v; 
+                %v = merge_vectors(temporal_mass(timestep,new_CRP_idx), latent_lr* 1);
+                temporal_mass(timestep,new_CRP_idx) = latent_lr * 1; 
                 timestep = timestep + 1;
             end
         end

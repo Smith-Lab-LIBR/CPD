@@ -70,7 +70,10 @@ for i = 1:length(DCM.field)
     else
         if strcmp(field,'reward_lr')
             pE.(field) = log(DCM.MDP.reward_lr/(1-DCM.MDP.reward_lr));           
-            pC{i,i}    = 0.1;            
+            pC{i,i}    = 0.5; 
+        elseif strcmp(field,'decay')
+            pE.(field) = log(DCM.MDP.decay/(1-DCM.MDP.decay));           
+            pC{i,i}    = 0.5; 
         elseif strcmp(field,'inverse_temp')
             pE.(field) = log(DCM.MDP.inverse_temp);             
             pC{i,i}    = 1;
@@ -138,6 +141,8 @@ for i = 1:length(field)
     elseif strcmp(field{i},'reward_prior')
         params.(field{i}) = P.(field{i});
     elseif strcmp(field{i},'kappa_prior')
+        params.(field{i}) = 1/(1+exp(-P.(field{i})));
+    elseif strcmp(field{i},'decay')
         params.(field{i}) = 1/(1+exp(-P.(field{i})));
     elseif strcmp(field{i},'eta')
         params.(field{i}) = 1/(1+exp(-P.(field{i})));
