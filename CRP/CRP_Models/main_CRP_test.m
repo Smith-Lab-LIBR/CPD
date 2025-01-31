@@ -225,8 +225,11 @@ function [] = main_CRP_test(subject_id)
     % all_sub_ids = readtable('/media/labs/rsmith/lab-members/nli/CPD_updated/T475_list.csv');
     % all_sub_ids = table2cell(all_sub_ids);
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    outer_fit_list = {@CPD_CRP_multi_inference_expectation, @CPD_CRP_multi_inference_max, @CPD_CRP_single_inference_expectation, @CPD_CRP_single_inference_max};
-    inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic', 'temporal'};
+    %outer_fit_list = {@CPD_CRP_multi_inference_expectation, @CPD_CRP_multi_inference_max, @CPD_CRP_single_inference_expectation, @CPD_CRP_single_inference_max};
+    outer_fit_list = {@CPD_CRP_single_inference_max, @CPD_CRP_single_inference_expectation};
+    %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
+    inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget'};
+    %inner_fit_list = {'temporal_forget'};
     F_CRP_model = [];
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
@@ -234,10 +237,24 @@ function [] = main_CRP_test(subject_id)
     for i = 1:length(outer_fit_list)
         model_handle = outer_fit_list{i};
         for j = 1:length(inner_fit_list)
-            if j == 1
-                decay_type = "";
+            if exist('DCM', 'var') && isfield(DCM, 'MDP')
+                DCM = rmfield(DCM, 'MDP');
+            end
+            reward_lr = 0.1;
+            latent_lr = 0.5;
+            alpha = 1;
+            inverse_temp = 1;
+            reward_prior = 0;
+            decay = 0.8;
+            forget_threshold = 0.05;
+            if strcmp(inner_fit_list{j}, 'vanilla')
+                 decay_type = "";
+            elseif strcmp(inner_fit_list{j}, 'basic_forget')
+                decay_type = "basic";
+            elseif strcmp(inner_fit_list{j}, 'temporal_forget')
+                decay_type = "temporal";
             else
-                decay_type = inner_fit_list{j};
+                 decay_type = inner_fit_list{j};
             end
 
             DCM.MDP.reward_lr = reward_lr;
@@ -247,11 +264,11 @@ function [] = main_CRP_test(subject_id)
             DCM.MDP.inverse_temp = inverse_temp;
             DCM.MDP.reward_prior = reward_prior;
             DCM.model = model_handle;
-            if j == 1
+            if strcmp(inner_fit_list{j}, 'vanilla')
                  DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha'}; % Parameter field
                  file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
                  filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_csv/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
-            elseif j == 2 || j == 3
+            elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
                 DCM.MDP.decay = decay;
                 DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha', 'decay'}; % Parameter field
                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), decay_type);
@@ -272,6 +289,7 @@ function [] = main_CRP_test(subject_id)
             % we have the best fit model parameters. Simulate the task one more time to
             % get the average action probability and accuracy with these best-fit
             % parameters
+            params = struct();
             if isfield(CPD_fit_output.Ep, 'reward_lr')
                 params.reward_lr = 1/(1+exp(-CPD_fit_output.Ep.reward_lr));
             end
@@ -350,7 +368,8 @@ function [] = main_CRP_test(subject_id)
             fprintf('Final Average Accuracy: %f \n',accuracy)          
           
             save(file_name)
-             output.subject = subject_id;
+            output = struct();
+            output.subject = subject_id;
             output.reward_lr = params.reward_lr;
             output.latent_lr = params.latent_lr;
             output.alpha= params.alpha;

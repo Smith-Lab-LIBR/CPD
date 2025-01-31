@@ -1,6 +1,5 @@
 % Model fitting script for CPD task
-
-function DCM = CPD_RL_fit(DCM)
+function DCM = CPD_latent_fit(DCM)
 
 % MDP inversion using Variational Bayes
 % FORMAT [DCM] = spm_dcm_mdp(DCM)
@@ -71,16 +70,26 @@ for i = 1:length(DCM.field)
     else
         if strcmp(field,'reward_lr')
             pE.(field) = log(DCM.MDP.reward_lr/(1-DCM.MDP.reward_lr));           
-            pC{i,i}    = 1;            
+            pC{i,i}    = 2;
+         elseif strcmp(field,'latent_lr')
+             pE.(field) = log(DCM.MDP.latent_lr/(1-DCM.MDP.latent_lr));             
+             pC{i,i}    = 2;
+         elseif strcmp(field,'new_latent_lr')
+             pE.(field) = log(DCM.MDP.new_latent_lr/(1-DCM.MDP.new_latent_lr));             
+             pC{i,i}    = 20;
+
+        elseif strcmp(field,'decay')
+             pE.(field) = log(DCM.MDP.decay/(1-DCM.MDP.decay));             
+             pC{i,i}    = 2;
+        elseif strcmp(field,'forget_threshold')
+             pE.(field) = log(DCM.MDP.forget_threshold/(1-DCM.MDP.forget_threshold));             
+             pC{i,i}    = 2;          
         elseif strcmp(field,'inverse_temp')
             pE.(field) = log(DCM.MDP.inverse_temp);             
             pC{i,i}    = 1;
         elseif strcmp(field,'reward_prior')
-            pE.(field) = DCM.MDP.reward_prior   ;             
-            pC{i,i}    = 0.5;  
-        elseif strcmp(field,'decay')
-            pE.(field) = log(DCM.MDP.decay/(1-DCM.MDP.decay));           
-            pC{i,i}    = 0.5; 
+            pE.(field) = DCM.MDP.reward_prior;             
+            pC{i,i}    = 0.5;        
         else
             pE.(field) = 0;      
             pC{i,i}    = prior_variance;
@@ -98,9 +107,10 @@ M.pC    = pC;                            % prior variance (parameters)
 M.model = DCM.model;
 M.decay_type = DCM.decay_type;
 
+
 % Variational Laplace
 %--------------------------------------------------------------------------
-[Ep,Cp,F] = spm_nlsi_Newton(M,DCM.U,DCM.Y); %what is doing is to call log lik fuc couple times with different combination of params, each time it called it get the F value
+[Ep,Cp,F] = spm_nlsi_Newton(M,DCM.U,DCM.Y);
 
 % Store posterior densities and log evidnce (free energy)
 %--------------------------------------------------------------------------
@@ -113,7 +123,7 @@ DCM.F   = F;
 return
 end
 
-function [L] = spm_mdp_L(P,M,U,Y) % output the log likelihood of actions. 
+function [L] = spm_mdp_L(P,M,U,Y)
 % log-likelihood function
 % FORMAT L = spm_mdp_L(P,M,U,Y)
 % P    - parameter structure
@@ -132,12 +142,18 @@ field = fieldnames(M.pE);
 for i = 1:length(field)
     if strcmp(field{i},'reward_lr')
         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
+     elseif strcmp(field{i},'latent_lr')
+         params.(field{i}) = 1/(1+exp(-P.(field{i})));        
+     elseif strcmp(field{i},'new_latent_lr')
+         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
+     elseif strcmp(field{i},'decay')
+         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
+    elseif strcmp(field{i},'forget_threshold')
+         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
     elseif strcmp(field{i},'inverse_temp')
         params.(field{i}) = exp(P.(field{i}));           
     elseif strcmp(field{i},'reward_prior')
         params.(field{i}) = P.(field{i});
-    elseif strcmp(field{i},'decay')
-        params.(field{i}) = 1/(1+exp(-P.(field{i})));
     else
         mdp.(field{i}) = exp(P.(field{i}));
     end
@@ -147,7 +163,7 @@ end
 trials = U;
 L = 0;
 decay_type = M.decay_type;
-action_probabilities = M.model(params, trials, decay_type);  
+action_probabilities = M.model(params, trials, 0, decay_type);    
 count = 0;
 average_accuracy = 0;
 average_action_probability = 0;

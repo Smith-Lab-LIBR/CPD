@@ -36,9 +36,9 @@ for trial = 1:length(trials)
     trial_length = height(true_actions);
     correct_choices = current_trial(1,3);
     
-    if strcmp(decay_type, "basic")
+    if strcmp(decay_type, "basic") && trial > 1
         decay_rate = params.decay;
-        choice_rewards = rl_decay(choice_rewards, reward_prior, decay_rate);
+        choice_rewards = rl_decay(choice_rewards, reward_prior, true_action + 1, decay_rate);
     end
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t, 1).response;
@@ -59,7 +59,7 @@ for trial = 1:length(trials)
             choices{trial}(t, :)= choice;
             
             if trial_length > 1 % first choice being wrong (NL)
-               prediction_error = learning_rate*(-1 - (choice_rewards(:, true_action+1)));
+               prediction_error = learning_rate*(reward_prior - 1 - (choice_rewards(:, true_action+1)));
                 % we multiply by 0.5 to ensure that kappa values stay < 1
                kappa_values(:, true_action+1) = (1-eta)*kappa_values(:,true_action+1) + eta*0.5*abs(prediction_error);
                % ensure a lower bound of .05
@@ -67,8 +67,8 @@ for trial = 1:length(trials)
                kappa_value = kappa_values(:, true_action+1);
                choice_rewards(:, true_action+1) = choice_rewards(:, true_action+1) + kappa_value*prediction_error;
             else % first choice being correct -NL
-                outcome = outcome -1;
-                outcome(true_action + 1) = 1;
+                outcome = outcome + reward_prior - 1 ;
+                outcome(true_action + 1) = reward_prior + 1;
                 prediction_error = learning_rate*(outcome - choice_rewards);
                 kappa_values = (1-eta)*kappa_values + eta*0.5*abs(prediction_error);
                 kappa_values(kappa_values < 0.05) = 0.05;
@@ -79,8 +79,8 @@ for trial = 1:length(trials)
             if ~isempty(correct_choice)
                 previous_result_idx = true_actions(t-1, 1).response + 1;
                 outcome = zeros(1, 3);
-                outcome = outcome - 1; 
-                outcome(correct_choice + 1) = 1; 
+                outcome = outcome + reward_prior - 1; 
+                outcome(correct_choice + 1) = reward_prior + 1; 
                 reward_probabilities(:,previous_result_idx) = exp(-16);
                 row_sums = sum(reward_probabilities, 2);
                 reward_probabilities = bsxfun(@rdivide, reward_probabilities, row_sums);
@@ -95,7 +95,7 @@ for trial = 1:length(trials)
                 choice = find(cumsum(action_probabilities) >= u, 1);
                 choice = choice - 1; % match the coding of choices from task
                 choices{trial}(t,:) = choice;
-                disp(['Trial: ' num2str(trial) ', Time step: ' num2str(t)]);
+               % disp(['Trial: ' num2str(trial) ', Time step: ' num2str(t)]);
 
                 columnIndices = true(1, 3);
                 columnIndices(previous_result_idx) = false;

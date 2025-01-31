@@ -100,7 +100,8 @@ pC      = spm_cat(pC);
 M.L     = @(P,M,U,Y)spm_mdp_L(P,M,U,Y);  % log-likelihood function
 M.pE    = pE;                            % prior means (parameters)
 M.pC    = pC;                            % prior variance (parameters)
-
+M.model = DCM.model;
+M.decay_type = DCM.decay_type;
 
 % Variational Laplace
 %--------------------------------------------------------------------------
@@ -154,7 +155,8 @@ end
 
 trials = U;
 L = 0;
-action_probabilities = CPD_RL_kappa_model(params, trials, 0);    
+decay_type = M.decay_type;
+action_probabilities = M.model(params, trials, decay_type);    
 count = 0;
 average_accuracy = 0;
 average_action_probability = 0;

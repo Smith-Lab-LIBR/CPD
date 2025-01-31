@@ -79,10 +79,10 @@ for i = 1:length(DCM.field)
             pC{i,i}    = 1;
         elseif strcmp(field,'reward_prior')
             pE.(field) = DCM.MDP.reward_prior     ;             
-            pC{i,i}    = 0;         
+            pC{i,i}    = 1;         
         elseif strcmp(field,'alpha')
             pE.(field) = log(DCM.MDP.alpha)   ;             
-            pC{i,i}    = 20;  
+            pC{i,i}    = 1;  
         elseif strcmp(field,'decay')
             pE.(field) = log(DCM.MDP.decay/(1-DCM.MDP.decay));             
             pC{i,i}    = 2;
