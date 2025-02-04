@@ -181,6 +181,7 @@
 %
 
 function [] = main(subject_id)
+    dbstop if error; 
     seed = subject_id(end-2:end);
     seed = str2double(seed);
     rng(seed);
@@ -191,14 +192,16 @@ function [] = main(subject_id)
     elseif isunix 
         root = '/media/labs/';  
     end
-
+    addpath(['../..']); % add parent of parent directory to path
     % for i = 1:numel(all_sub_ids)
     %     subject_id = all_sub_ids{i};
       % try 
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-     data_dir = [root 'rsmith/lab-members/nli/CPD_updated/Individual_file_mat'];
-     filename = fullfile(data_dir, [subject_id '_trials_CPD_indv.mat']);
-    load(filename);
+    % data_dir = [root 'rsmith/lab-members/nli/CPD_updated/Individual_file_mat'];
+    % filename = fullfile(data_dir, [subject_id '_trials_CPD_indv.mat']);
+   % load(filename);
+
+    trials = load_CPD_data(root,subject_id);
 
     trial_num = 1;
     while(trial_num <= numel(trials)) %&& all(strcmp(trials{trial_num}.id,'AA181')))
@@ -256,6 +259,8 @@ function [] = main(subject_id)
             %DCM.MDP.existing_latent_lr = existing_latent_lr;
             DCM.MDP.inverse_temp = inverse_temp;
             DCM.MDP.reward_prior = reward_prior;
+            
+
             DCM.model = model_handle;
             if strcmp(inner_fit_list{j}, 'vanilla')
                  DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'new_latent_lr'}; % Parameter field
@@ -273,6 +278,42 @@ function [] = main(subject_id)
                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s_%s_forget.mat'], subject_id, func2str(DCM.model), decay_type);
                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_csv/%s_individual_%s_%s_forget.csv'], subject_id, func2str(DCM.model), decay_type);
             end
+
+            DCM.use_DDM = true;
+            %%% set up DDM 
+            if DCM.use_DDM
+                DCM.max_rt = 2;
+                DCM.min_rt = .3;
+                
+                DCM.drift_mapping = 'action_prob'; % specify that action_prob maps to drift or leave blank so that drift rate will be fit as free parameter
+                DCM.bias_mapping = 'action_prob'; % specify that action_prob maps to starting bias or leave blank so that starting bias will be fit as free parameter
+
+                if strcmp(DCM.drift_mapping,'action_prob')
+                    DCM.MDP.drift_baseline = .085; % parameter for baseline drift rate
+                    DCM.field{end+1} = 'drift_baseline'; 
+                    DCM.MDP.drift_mod = .5; % parameter that maps action probability onto drift rate
+                    DCM.field{end+1} = 'drift_mod';
+                else
+                    DCM.MDP.drift = 0; 
+                    DCM.field{end+1} = 'drift';
+                end
+                
+                if strcmp(DCM.bias_mapping,'action_prob')
+                    DCM.MDP.bias_mod = .5; % parameter that maps action probability onto starting bias
+                    DCM.field{end+1} = 'bias_mod';
+                else
+                    DCM.MDP.starting_bias = .5;
+                    DCM.field{end+1} = 'starting_bias';
+                end
+                DCM.MDP.nondecision_time = .2;
+                DCM.field{end+1} = 'nondecision_time';
+                DCM.MDP.decision_thresh = 2;
+                DCM.field{end+1} = 'decision_thresh';
+
+
+
+            end
+
 
             DCM.U = MDP.trials;
             DCM.Y = 0;
@@ -305,9 +346,35 @@ function [] = main(subject_id)
                 params.forget_threshold = 1/(1+exp(-CPD_fit_output.Ep.forget_threshold)); 
             end
         
+            if isfield(CPD_fit_output.Ep, 'drift_baseline')
+                params.drift_baseline = CPD_fit_output.Ep.drift_baseline;
+            end
+            if isfield(CPD_fit_output.Ep, 'drift')
+                params.drift = CPD_fit_output.Ep.drift;
+            end
+
+            if isfield(CPD_fit_output.Ep, 'starting_bias')
+                params.starting_bias = 1/(1+exp(-CPD_fit_output.Ep.starting_bias));
+            end
+            if isfield(CPD_fit_output.Ep, 'drift_mod')
+                params.drift_mod = 1/(1+exp(-CPD_fit_output.Ep.drift_mod));
+            end
+            if isfield(CPD_fit_output.Ep, 'bias_mod')
+                params.bias_mod = 1/(1+exp(-CPD_fit_output.Ep.bias_mod));
+            end
+            if isfield(CPD_fit_output.Ep, 'decision_thresh')
+                params.decision_thresh = exp(CPD_fit_output.Ep.decision_thresh);
+            end
+            if isfield(CPD_fit_output.Ep, 'nondecision_time')
+                params.nondecision_time = 0.1 + (0.3 - 0.1) ./ (1 + exp(-CPD_fit_output.Ep.nondecision_time)); 
+            end
+
+
+
             % rerun model a final time
             L = 0;
-            action_probabilities = DCM.model(params, trials, 0, decay_type); 
+            model_output = DCM.model(params, trials, 0, decay_type, DCM); 
+            action_probabilities = model_output.patch_action_probs;
             count = 0;
             average_accuracy = 0;
             average_action_probability = 0;
@@ -363,18 +430,22 @@ function [] = main(subject_id)
             save(file_name)
             output = struct();
             output.subject = subject_id;
-            output.reward_lr = params.reward_lr;
-            output.latent_lr = params.latent_lr;
-            output.new_latent_lr = params.new_latent_lr;
-            output.inverse_temp = params.inverse_temp;
-            output.reward_prior = params.reward_prior;
-            if isfield(params, 'decay')
-                output.decay = params.decay;
-                
+            param_names = fieldnames(params);
+            for i = 1:length(param_names)
+                output.(param_names{i}) = params.(param_names{i});
             end
-            if isfield(params, 'forget_threshold')
-                output.froget_threshold = params.forget_threshold;
-            end
+            % output.reward_lr = params.reward_lr;
+            % output.latent_lr = params.latent_lr;
+            % output.new_latent_lr = params.new_latent_lr;
+            % output.inverse_temp = params.inverse_temp;
+            % output.reward_prior = params.reward_prior;
+            % if isfield(params, 'decay')
+            %     output.decay = params.decay;
+            % 
+            % end
+            % if isfield(params, 'forget_threshold')
+            %     output.froget_threshold = params.forget_threshold;
+            % end
         
             output.accuracy = accuracy;
             output.action_accuracy = action_accuracy;
