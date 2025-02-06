@@ -247,8 +247,8 @@ end
     
 
  fprintf('LL: %f \n',L)
- fprintf('Average choice probability: %f \n',action_accuracy)
- fprintf('Average Accuracy: %f \n',accuracy)
+ fprintf('Average Patch Choice Probability: %f \n',action_accuracy)
+ fprintf('Average Patch Choice Accuracy: %f \n',accuracy)
 end
 
 

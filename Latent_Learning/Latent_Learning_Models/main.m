@@ -418,15 +418,25 @@ function [] = main(subject_id)
             
                 end
             end
+
             
             %These are the final values. 
             action_accuracy = average_action_probability/count;
             accuracy = average_accuracy/accuracy_count;
             
             fprintf('Final LL: %f \n',L)
-            fprintf('Final Average choice probability: %f \n',action_accuracy)
-            fprintf('Final Average Accuracy: %f \n',accuracy)          
-          
+            fprintf('Final Patch Average choice probability: %f \n',action_accuracy)
+            fprintf('Final Patch Average Accuracy: %f \n',accuracy)          
+            
+            if DCM.use_DDM
+                rt_pdf = model_output.dot_motion_rt_pdf;
+                all_values = rt_pdf(~isnan(rt_pdf(:)));
+                L = L + sum(log(all_values + eps));
+                fprintf('Final Dot Motion Average choice probability: %f \n',mean(model_output.dot_motion_action_prob(~isnan(model_output.dot_motion_action_prob))))
+                fprintf('Final Dot Motion Average Accuracy: %f \n',mean(model_output.dot_motion_model_acc(~isnan(model_output.dot_motion_model_acc))))    
+            end
+
+
             save(file_name)
             output = struct();
             output.subject = subject_id;
@@ -447,8 +457,10 @@ function [] = main(subject_id)
             %     output.froget_threshold = params.forget_threshold;
             % end
         
-            output.accuracy = accuracy;
-            output.action_accuracy = action_accuracy;
+            output.patch_choice_avg_action_prob = accuracy;
+            output.patch_choice_model_acc = action_accuracy;
+            output.dot_motion_avg_action_prob = mean(model_output.dot_motion_action_prob(~isnan(model_output.dot_motion_action_prob)));
+            output.dot_motion_model_acc = mean(model_output.dot_motion_model_acc(~isnan(model_output.dot_motion_model_acc)));
             output.LL = L;
             output.free_energy = CPD_fit_output.F; 
         
