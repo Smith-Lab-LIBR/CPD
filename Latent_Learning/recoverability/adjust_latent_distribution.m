@@ -5,6 +5,7 @@ function [latent_state_distribution, temporal_mass, max_me_idx] = adjust_latent_
     else % in the case of a multiple timestep trial, i.e first choice is not correct
         model_evidence = 1 - model(:,action + 1); % how wrong was each model
     end
+    %model_evidence = (model_evidence+exp(-16)/sum(model_evidence+exp(-16)));
     % get the maximum model evidence
     max_me = max(model_evidence);
     max_me_idxs = find(model_evidence == max_me);  % Find all indices where max occurs
@@ -12,16 +13,22 @@ function [latent_state_distribution, temporal_mass, max_me_idx] = adjust_latent_
 % Randomly select one of the max indices
     max_me_idx = max_me_idxs(randi(length(max_me_idxs)));
     model_evidence = model_evidence';
-
+    likelihoods = model_evidence;
     % update probability of the latent state with maximum model evidence.
     % This is essentially taking a max - assuming that the most likely
     % latent state was the correct one
     %if max_me_idx == length(model_evidence) && lr_new ~= 0
     %if lr_new ~= 0
-        
-        %delta = lr_new *  (1 - latent_state_distribution(max_me_idx));
-   % else
-        delta = lr * (1 - latent_state_distribution(max_me_idx));
+
+        delta = lr * (1 - latent_state_distribution(max_me_idx));%likelihoods(max_me_idx);
+        if delta + latent_state_distribution(max_me_idx) > 1
+            delta = 1-latent_state_distribution(max_me_idx);
+        end
+    %else
+        % delta = lr*likelihoods(max_me_idx); %* (1 - latent_state_distribution(max_me_idx));
+        % if delta + latent_state_distribution(max_me_idx) > 1
+        %     delta = 1-latent_state_distribution(max_me_idx);
+        % end
 
     %end
     
