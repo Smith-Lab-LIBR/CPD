@@ -1,7 +1,7 @@
 % testing call
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
-function action_probs = CPD_latent_multi_inference_max(params, trials, test, decay_type)
+function action_probs = CPD_latent_single_inference_max(params, trials, test, decay_type)
 param_names = fieldnames(params);
 for k = 1:length(param_names)
     param_name = param_names{k};
@@ -9,7 +9,7 @@ for k = 1:length(param_names)
     fprintf('%s: %f \n',param_name, param_value);
 
 end
-
+new_latent_states_history = [];
 rng(1);
 choices = [];
 %block_length = data.block_legnth;
@@ -18,7 +18,7 @@ choices = [];
 
 %% for testing %%
 
-    if test == 1
+if test == 1
     data_result = [0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,1,1,1,0,0,0];
     block_length = 1;
     sub_block_length = length(data_result);
@@ -45,6 +45,7 @@ else
     else
         forget_threshold = 0;
     end
+
 end
 %%%%%%%%%%%%%%%%%%%
 %inverse_temp = 2;
@@ -58,11 +59,10 @@ lr_coef_max = length(trials);
 temporal_mass = zeros(1, 1);
 temporal_mass(1,1) = 1;
 new_temporal_mass = zeros(1, 2);
-new_temporal_mass(1,1) = .9;
-new_temporal_mass(1,2) = .1;
+new_temporal_mass(1,1) = .1;
+new_temporal_mass(1,2) = .9;
 timestep = 1;
 for trial = 1:length(trials)
-
     c = lr_coef/lr_coef_max;
     current_trial = trials{trial};
     if height(current_trial) > 2
@@ -116,46 +116,26 @@ for trial = 1:length(trials)
  
         if t == 1
             outcome = zeros(1,3);
-           
+            
+    
             %% simulate action %%
     
             % sample choice from latent states
-            % latent_state_idx = randsample(find(latent_states_distribution == max(latent_states_distribution)), 1);
-            % action_probabilities = reward_probabilities(latent_state_idx,:);
-            % action_probs{trial}(t,:) = action_probabilities;
+            
             action_probabilities = sum(latent_states_distribution' .* reward_probabilities, 1);
             action_probs{trial}(t,:) = action_probabilities;
-    
-            %choice = find(cumsum(action_probabilities) >= u, 1);
+             u = rand(1,1);
             choice = find(cumsum(action_probabilities) >= u, 1);
             choice = choice - 1; % match the coding of choices from task
             choices{trial}(t,:) = choice;
 
-
-            if trial_length > 1
+            if trial_length == 1               
                 % update latent_state_distribution
-                [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, latent_state_rewards, true_action, latent_learning_rate,0, 0, timestep, temporal_mass, decay_type);
-                [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, new_latent_state_rewards, true_action,latent_learning_rate, latent_learning_rate_new, 0, timestep, new_temporal_mass, decay_type);
+                [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, reward_probabilities, true_action, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
+                [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, true_action, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
                 idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
                 latent_state_idx = randsample(find(latent_states_distribution == max(latent_states_distribution)), 1);
                 new_latent_state_idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
-                new_prob = new_latent_states_distribution(end);
-                prediction_error = learning_rate *c* (-1 - (latent_state_rewards(latent_state_idx,true_action + 1))); % selects all rows of latent_state_rewards but only the column corresponding to the action specified by true_action
-                prediction_error_next = learning_rate * (-1 - (new_latent_state_rewards(new_latent_state_idx,true_action + 1)));
-                %prediction_error_next = learning_rate *c* (-1 - (new_latent_state_rewards(1:end-1,true_action + 1)));
-                latent_state_rewards(latent_state_idx,true_action + 1) = latent_state_rewards(latent_state_idx,true_action + 1) + prediction_error;
-                %new_latent_state_rewards(1:end-1,true_action + 1) = new_latent_state_rewards(1:end-1,true_action + 1) + new_latent_states_distribution(1:end-1)' .* prediction_error_next;
-                new_latent_state_rewards(new_latent_state_idx,true_action + 1) = new_latent_state_rewards(new_latent_state_idx,true_action + 1) +  prediction_error_next;
-                timestep = timestep + 1;
-             
-            else
-                % update latent_state_distribution
-                [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, latent_state_rewards, true_action, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
-                [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, new_latent_state_rewards, true_action, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
-                idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
-                latent_state_idx = randsample(find(latent_states_distribution == max(latent_states_distribution)), 1);
-                new_latent_state_idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
-                new_prob = new_latent_states_distribution(end);
                 outcome = outcome - 1;
                 outcome(true_action + 1) = 1;
                 %prediction_error_next = learning_rate *c* (outcome  - new_latent_state_rewards(1:end-1,:));
@@ -168,7 +148,6 @@ for trial = 1:length(trials)
                 new_latent_state_rewards(new_latent_state_idx,:) = new_latent_state_rewards(new_latent_state_idx,:) + prediction_error_next;
                 %new_latent_state_rewards(1:end-1,:) = new_latent_state_rewards(1:end-1,:) + new_latent_states_distribution(1:end-1)' .* prediction_error_next;
                 timestep = timestep + 1;
-             
             end
          
         else
@@ -178,9 +157,7 @@ for trial = 1:length(trials)
                 outcome = zeros(1,3);
                 outcome = outcome - 1;
                 outcome(result + 1) = 1;
-
-                latent_state_idx = randsample(find(latent_states_distribution == max(latent_states_distribution)), 1);
-                new_latent_state_idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
+             
                 reward_probabilities(:,previous_result_idx) = exp(-16);
                 row_sums = sum(reward_probabilities, 2); % Sum along the second dimension (rows)
                 reward_probabilities = bsxfun(@rdivide, reward_probabilities, row_sums);
@@ -189,28 +166,30 @@ for trial = 1:length(trials)
                 next_reward_probabilities = bsxfun(@rdivide, next_reward_probabilities, row_sums);
                 action_probabilities = sum(latent_states_distribution' .* reward_probabilities, 1);
                 action_probs{trial}(t,:) = action_probabilities;
-          
-                %choice = find(cumsum(action_probabilities) >= u, 1);
-                choice = randsample(find(action_probabilities == max(action_probabilities)), 1);
+                 u = rand(1,1);
+                choice = find(cumsum(action_probabilities) >= u, 1);
                 choice = choice - 1; % match the coding of choices from task
                 choices{trial}(t,:) = choice;
                 % update latent_state_distribution
-                [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, latent_state_rewards, result, latent_learning_rate,0, 1, timestep, temporal_mass, decay_type);
-                [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, new_latent_state_rewards, result, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
-                idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
-                latent_state_idx = randsample(find(latent_states_distribution == max(latent_states_distribution)), 1);
+                [latent_states_distribution, temporal_mass, max_evidence]  = adjust_latent_distribution(latent_states_distribution, reward_probabilities, result, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
+                [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, result, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
+                %idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
+                %latent_state_idx = randsample(find(latent_states_distribution == max(latent_states_distribution)), 1);
+                idx = max_evidence_new;
+                idx_new = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
+                latent_state_idx = max_evidence;
                 new_latent_state_idx = randsample(find(new_latent_states_distribution == max(new_latent_states_distribution)), 1);
-                new_prob = new_latent_states_distribution(end);
+                
                 columnIndices = true(1, 3);
                 columnIndices(previous_result_idx) = false;
                 %outcome(sub_block_result.response + 1) = 1;
                 prediction_error = learning_rate * c* (outcome(:,columnIndices) - latent_state_rewards(latent_state_idx,columnIndices));
                 %prediction_error_next = learning_rate *c* (outcome(:,columnIndices)  - new_latent_state_rewards(1:end-1,columnIndices));
-                prediction_error_next = learning_rate * (outcome(:,columnIndices)  - new_latent_state_rewards(new_latent_state_idx,columnIndices));
+                prediction_error_next = learning_rate * (outcome(:,columnIndices)  - new_latent_state_rewards(idx,columnIndices));
                 
                 % update latent state reward predictions weighted by latent state distribution
                 latent_state_rewards(latent_state_idx,columnIndices) = latent_state_rewards(latent_state_idx,columnIndices) +  prediction_error;
-                new_latent_state_rewards(new_latent_state_idx,columnIndices) = new_latent_state_rewards(new_latent_state_idx,columnIndices) + prediction_error_next;
+                new_latent_state_rewards(new_latent_state_idx,columnIndices) = new_latent_state_rewards(idx,columnIndices) + prediction_error_next;
                 timestep = timestep + 1;
                 %new_latent_state_rewards(1:end-1,columnIndices) = new_latent_state_rewards(1:end-1,columnIndices) + new_latent_states_distribution(1:end-1)' .* prediction_error_next;
             else 
@@ -221,7 +200,7 @@ for trial = 1:length(trials)
 
 
         %if the prospective latent state is the max, we sub out our current latent state distribution and replace it with the new one
-        if new_prob > latent_learning_rate_new   
+        if idx_new == length(new_latent_states_distribution)
             latent_states_distribution = new_latent_states_distribution;
             temporal_mass = new_temporal_mass;
             %latent_states_distribution(end+1) = new_latent_states_distribution(end);
@@ -241,7 +220,9 @@ for trial = 1:length(trials)
         end
     end
    % lr_coef = lr_coef-1;
+   %new_latent_states_history(trial,:) = new_latent_states_distribution;
 end
+
 end
 
 
@@ -285,3 +266,4 @@ function log_sums_bf = getBayesFactorsAggregation(models, data)
     log_sums_bf = log_sums_bf + exp(-16);
 
 end
+

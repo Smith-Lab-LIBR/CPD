@@ -180,7 +180,7 @@
 
 %
 
-function [] = main(subject_id)
+function [] = main_test(subject_id)
     seed = subject_id(end-2:end);
     seed = str2double(seed);
     rng(seed);
@@ -218,7 +218,7 @@ function [] = main(subject_id)
     % all_sub_ids = readtable('/media/labs/rsmith/lab-members/nli/CPD_updated/T475_list.csv');
     % all_sub_ids = table2cell(all_sub_ids);
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    outer_fit_list = {@CPD_latent_multi_inference_max, @CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
+    outer_fit_list = {@CPD_latent_max_learning_mixture_reward};
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
     %outer_fit_list = {@CPD_latent_single_inference_max};
     inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
