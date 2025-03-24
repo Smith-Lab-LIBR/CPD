@@ -74,7 +74,7 @@ for trial = 1:length(trials)
                 new_latent_states_distribution = latent_state_counts/(t_latent_state_counts + alpha);
                 new_latent_states_distribution(end+1) = alpha/(t_latent_state_counts + alpha);
                 latent_state_rewards(end+1,:) = [reward_prior,reward_prior,reward_prior];
-                CRP_likelihoods = softmax(latent_state_rewards);
+                CRP_likelihoods = softmax_rows(latent_state_rewards);
                 post = new_latent_states_distribution.*CRP_likelihoods(:, true_action+1)';
                 post = (post+exp(-16))/(sum((post+exp(-16))));
                 u = rand(1,1);
@@ -132,7 +132,7 @@ for trial = 1:length(trials)
                 % update latent_state_distribution
                 columnIndices = true(1, 3);
                 columnIndices(previous_result_idx) = false;
-                CRP_likelihoods = softmax(latent_state_rewards);
+                CRP_likelihoods = softmax_rows(latent_state_rewards);
                 post = new_latent_states_distribution.* CRP_likelihoods(:, correct_choice+1)';
                 post = (post+exp(-16))/(sum((post+exp(-16))));
                 new_CRP_idx = find(cumsum(post) >= u, 1);

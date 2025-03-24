@@ -1,7 +1,13 @@
 function action_probs = CPD_CRP_multi_inference_max(params, trials, decay_type)
 rng(1);
 choices = [];
+param_names = fieldnames(params);
+for k = 1:length(param_names)
+    param_name = param_names{k};
+    param_value = params.(param_name);
+    fprintf('%s: %f \n',param_name, param_value);
 
+end
 learning_rate = params.reward_lr;
 inverse_temp = params.inverse_temp;
 reward_prior = params.reward_prior;

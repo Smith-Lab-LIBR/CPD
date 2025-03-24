@@ -1,7 +1,18 @@
 % testing call
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
-function action_probs = CPD_latent_multi_inference_expectation(params, trials, test, decay_type)
+function model_output = CPD_latent_multi_inference_expectation(params, trials, test, decay_type, settings)
+if settings.use_DDM
+    % note that action_prob corresponds to the probability of opening a
+    % patch, but dot_motion_action_prob corresponds to the probability of
+    % accepting the dot motion
+    dot_motion_action_prob = nan(2,290);
+    dot_motion_model_acc = nan(2,290);
+    dot_motion_rt_pdf = nan(2,290);
+    num_irregular_rts = 0;
+end
+
+
 param_names = fieldnames(params);
 for k = 1:length(param_names)
     param_name = param_names{k};
@@ -134,6 +145,38 @@ for trial = 1:length(trials)
             choice = choice - 1; % match the coding of choices from task
             choices{trial}(t,:) = choice;
 
+            %%% USE DDM to fit/simulate probability of accepting dot motion 
+            if settings.use_DDM
+                patch_choice_prob =  action_probabilities(true_action+1);
+                if contains(settings.drift_mapping, 'action_prob')
+                    drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                else
+                    drift = params.drift;
+                end
+                if contains(settings.bias_mapping, 'action_prob')
+                    starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                else
+                    starting_bias = params.starting_bias;
+                end
+                % negative drift and lower bias entail greater probability of
+                % accepting dot motion, so we check if the person accepted, then
+                % flip the sign if necessary
+                if  current_trial.accepted_dot_motion(t+1) 
+                    drift = drift * -1;
+                    starting_bias = 1 - starting_bias;
+                end
+                
+                % make sure valid trial before factoring into log likelihood
+                if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                    dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                    dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                    dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                else 
+                    num_irregular_rts = num_irregular_rts + 1;
+                end
+
+            end
+
             if trial_length > 1
                 % update latent_state_distribution
                 [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, latent_state_rewards, true_action, latent_learning_rate,0,0, timestep, temporal_mass, decay_type);
@@ -189,6 +232,41 @@ for trial = 1:length(trials)
                 % [m, choice] = max(action_probabilities);
                 choice = choice - 1; % match the coding of choices from task
                 choices{trial}(t,:) = choice;
+
+
+                %%% USE DDM to fit/simulate probability of accepting dot motion 
+                if settings.use_DDM
+                    patch_choice_prob =  action_probabilities(true_action+1);
+                    if contains(settings.drift_mapping, 'action_prob')
+                        drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                    else
+                        drift = params.drift;
+                    end
+                    if contains(settings.bias_mapping, 'action_prob')
+                        starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                    else
+                        starting_bias = params.starting_bias;
+                    end
+                    % negative drift and lower bias entail greater probability of
+                    % accepting dot motion, so we check if the person accepted, then
+                    % flip the sign if necessary
+                    if  current_trial.accepted_dot_motion(t+1) 
+                        drift = drift * -1;
+                        starting_bias = 1 - starting_bias;
+                    end
+                    
+                    % make sure valid trial before factoring into log likelihood
+                    if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                        dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                        dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                        dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                    else 
+                        num_irregular_rts = num_irregular_rts + 1;
+                    end
+    
+                end                
+
+
                 % update latent_state_distribution
                 [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, latent_state_rewards, result, latent_learning_rate, 0,1, timestep, temporal_mass, decay_type);
                 [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, new_latent_state_rewards, result, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
@@ -236,6 +314,12 @@ for trial = 1:length(trials)
     end
    % lr_coef = lr_coef-1;
 end
+model_output.patch_action_probs = action_probs;
+model_output.dot_motion_action_prob = dot_motion_action_prob;
+model_output.dot_motion_model_acc = dot_motion_model_acc;
+model_output.dot_motion_rt_pdf = dot_motion_rt_pdf;
+model_output.num_irregular_rts = num_irregular_rts;
+    
 end
 
 

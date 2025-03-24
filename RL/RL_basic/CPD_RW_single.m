@@ -11,9 +11,12 @@ choices = [];
 % reward_prior_2 = 0;
 % reward_prior_3 = 0;
 
-learning_rate = params.reward_lr;
-inverse_temp = params.inverse_temp;
-reward_prior = params.reward_prior;
+%learning_rate = params.reward_lr;
+ learning_rate = 0.008832;
+ inverse_temp = 7.5420;
+%inverse_temp = params.inverse_temp;
+%reward_prior = params.reward_prior;
+reward_prior = 0.2843;
 if isfield(params, 'decay')
     decay_rate = params.decay;
 end
