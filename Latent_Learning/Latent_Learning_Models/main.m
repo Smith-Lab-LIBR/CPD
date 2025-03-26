@@ -221,11 +221,11 @@ function [] = main(subject_id)
     % all_sub_ids = readtable('/media/labs/rsmith/lab-members/nli/CPD_updated/T475_list.csv');
     % all_sub_ids = table2cell(all_sub_ids);
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    %outer_fit_list = {@CPD_latent_multi_inference_expectation, @CPD_latent_multi_inference_max, @CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
+    outer_fit_list = {@CPD_latent_multi_inference_expectation, @CPD_latent_multi_inference_max, @CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_single_inference_expectation_2rl};
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
-    outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
+    %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_multi_inference_max};
     %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
-    inner_fit_list = {'vanilla'};
+    inner_fit_list = {'vanilla', "temporal"};
     F_CRP_model = [];
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
@@ -261,12 +261,12 @@ function [] = main(subject_id)
            % DCM.MDP.reward_prior = reward_prior;
             DCM.model = model_handle;
             if strcmp(inner_fit_list{j}, 'vanilla')
-                 DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'new_latent_lr'}; % Parameter field
+                 DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr'}; % Parameter field
                  file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
                  filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
             elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
                 DCM.MDP.decay = decay;
-                DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'new_latent_lr', 'decay'}; % Parameter field
+                DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr', 'decay'}; % Parameter field
                 %DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'new_latent_lr' 'latent_lr' 'decay'}; % Parameter field
                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), decay_type);
                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type);
@@ -432,7 +432,7 @@ function [] = main(subject_id)
             output.subject = subject_id;
             output.reward_lr = params.reward_lr;
             output.latent_lr = params.latent_lr;
-            output.new_latent_lr = params.new_latent_lr;
+            %output.new_latent_lr = params.new_latent_lr;
             output.inverse_temp = params.inverse_temp;
             %output.reward_prior = params.reward_prior;
             if isfield(params, 'decay')
@@ -442,18 +442,7 @@ function [] = main(subject_id)
             if isfield(params, 'forget_threshold')
                 output.froget_threshold = params.forget_threshold;
             end
-            % output.reward_lr = params.reward_lr;
-            % output.latent_lr = params.latent_lr;
-            % output.new_latent_lr = params.new_latent_lr;
-            % output.inverse_temp = params.inverse_temp;
-            % output.reward_prior = params.reward_prior;
-            % if isfield(params, 'decay')
-            %     output.decay = params.decay;
-            % 
-            % end
-            % if isfield(params, 'forget_threshold')
-            %     output.froget_threshold = params.forget_threshold;
-            % end
+      
         
             output.patch_choice_avg_action_prob = accuracy;
             output.patch_choice_model_acc = action_accuracy;
