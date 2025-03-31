@@ -1,7 +1,17 @@
 % testing call
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
-function action_probs = single_inference_expectation(params, trials, test, decay_type)
+function model_output = CPD_latent_single_inference_expectation(params, trials, test, decay_type,settings)
+% note that action_prob corresponds to the probability of opening a
+% patch, but dot_motion_action_prob corresponds to the probability of
+% accepting the dot motion
+dot_motion_action_prob = nan(2,290);
+dot_motion_model_acc = nan(2,290);
+dot_motion_rt_pdf = nan(2,290);
+num_irregular_rts = 0;
+
+
+
 param_names = fieldnames(params);
 for k = 1:length(param_names)
     param_name = param_names{k};
@@ -31,7 +41,7 @@ else
     latent_learning_rate = params.latent_lr;
     latent_learning_rate_new = 0; % this parameter is not used anymore
     inverse_temp = params.inverse_temp;
-    reward_prior = params.reward_prior;
+    reward_prior = 0;
     if isfield(params, 'decay')
         decay_rate = params.decay;
     end
@@ -126,6 +136,38 @@ for trial = 1:length(trials)
             choices{trial}(t,:) = choice;
             reward_probabilities = proportionalNormalization(latent_state_rewards);
             next_reward_probabilities = proportionalNormalization(new_latent_state_rewards);
+            %%% USE DDM to fit/simulate probability of accepting dot motion 
+            if settings.use_DDM
+                patch_choice_prob =  action_probabilities(true_action+1);
+                if contains(settings.drift_mapping, 'action_prob')
+                    drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                else
+                    drift = params.drift;
+                end
+                if contains(settings.bias_mapping, 'action_prob')
+                    starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                else
+                    starting_bias = params.starting_bias;
+                end
+                % negative drift and lower bias entail greater probability of
+                % accepting dot motion, so we check if the person accepted, then
+                % flip the sign if necessary
+                if  current_trial.accepted_dot_motion(t+1) 
+                    drift = drift * -1;
+                    starting_bias = 1 - starting_bias;
+                end
+                
+                % make sure valid trial before factoring into log likelihood
+                if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                    dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                    dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                    dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                else 
+                    num_irregular_rts = num_irregular_rts + 1;
+                end
+
+            end
+
             if t == trial_length
                 % update latent_state_distribution
                 [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, reward_probabilities, true_action, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
@@ -163,6 +205,38 @@ for trial = 1:length(trials)
                 % [m, choice] = max(action_probabilities);
                 choice = choice - 1; % match the coding of choices from task
                 choices{trial}(t,:) = choice;
+                
+
+                %%% USE DDM to fit/simulate probability of accepting dot motion 
+                if settings.use_DDM
+                    patch_choice_prob =  action_probabilities(true_action+1);
+                    if contains(settings.drift_mapping, 'action_prob')
+                        drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                    else
+                        drift = params.drift;
+                    end
+                    if contains(settings.bias_mapping, 'action_prob')
+                        starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                    else
+                        starting_bias = params.starting_bias;
+                    end
+                    % negative drift and lower bias entail greater probability of
+                    % accepting dot motion, so we check if the person accepted, then
+                    % flip the sign if necessary
+                    if  current_trial.accepted_dot_motion(t+1) 
+                        drift = drift * -1;
+                        starting_bias = 1 - starting_bias;
+                    end
+                    
+                    % make sure valid trial before factoring into log likelihood
+                    if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                        dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                        dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                        dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                    else 
+                        num_irregular_rts = num_irregular_rts + 1;
+                    end
+                end
                 % update latent_state_distribution
 
                 reward_probabilities = proportionalNormalization(latent_state_rewards);
@@ -205,7 +279,14 @@ for trial = 1:length(trials)
     end
    % lr_coef = lr_coef-1;
 end
+model_output.patch_action_probs = action_probs;
+model_output.dot_motion_action_prob = dot_motion_action_prob;
+model_output.dot_motion_model_acc = dot_motion_model_acc;
+model_output.dot_motion_rt_pdf = dot_motion_rt_pdf;
+model_output.num_irregular_rts = num_irregular_rts;
+    
 end
+
 
 
 %% Helper functions. Most of these unused for now but kept for posterity! %%
@@ -248,5 +329,3 @@ function log_sums_bf = getBayesFactorsAggregation(models, data)
     log_sums_bf = log_sums_bf + exp(-16);
 
 end
-
-

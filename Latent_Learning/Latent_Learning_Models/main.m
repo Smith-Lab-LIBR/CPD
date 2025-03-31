@@ -181,6 +181,8 @@
 %
 
 function [] = main(subject_id)
+    DCM.use_DDM = true;
+
     dbstop if error; 
     seed = subject_id(end-2:end);
     seed = str2double(seed);
@@ -222,6 +224,8 @@ function [] = main(subject_id)
     % all_sub_ids = table2cell(all_sub_ids);
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
     outer_fit_list = {@CPD_latent_multi_inference_expectation, @CPD_latent_multi_inference_max, @CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_single_inference_expectation_2rl};
+    % outer_fit_list = {@CPD_latent_single_inference_expectation};
+
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_multi_inference_max};
     %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
@@ -278,13 +282,12 @@ function [] = main(subject_id)
                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s_forget.csv'], subject_id, func2str(DCM.model), decay_type);
             end
 
-            DCM.use_DDM = true;
             %%% set up DDM 
             if DCM.use_DDM
                 DCM.max_rt = 2;
                 DCM.min_rt = .3;
                 
-                DCM.drift_mapping = 'action_prob'; % specify that action_prob maps to drift or leave blank so that drift rate will be fit as free phhhdrdr5fg88fyssaarameter
+                DCM.drift_mapping = 'action_prob'; % specify that action_prob maps to drift or leave blank so that drift rate will be fit as free parameter
                 DCM.bias_mapping = 'action_prob'; % specify that action_prob maps to starting bias or leave blank so that starting bias will be fit as free parameter
 
                 if strcmp(DCM.drift_mapping,'action_prob')

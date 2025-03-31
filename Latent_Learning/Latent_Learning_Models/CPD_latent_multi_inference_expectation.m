@@ -2,15 +2,13 @@
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
 function model_output = CPD_latent_multi_inference_expectation(params, trials, test, decay_type, settings)
-if settings.use_DDM
-    % note that action_prob corresponds to the probability of opening a
-    % patch, but dot_motion_action_prob corresponds to the probability of
-    % accepting the dot motion
-    dot_motion_action_prob = nan(2,290);
-    dot_motion_model_acc = nan(2,290);
-    dot_motion_rt_pdf = nan(2,290);
-    num_irregular_rts = 0;
-end
+% note that action_prob corresponds to the probability of opening a
+% patch, but dot_motion_action_prob corresponds to the probability of
+% accepting the dot motion
+dot_motion_action_prob = nan(2,290);
+dot_motion_model_acc = nan(2,290);
+dot_motion_rt_pdf = nan(2,290);
+num_irregular_rts = 0;
 
 
 param_names = fieldnames(params);
