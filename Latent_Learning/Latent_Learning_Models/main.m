@@ -434,7 +434,7 @@ function [] = main(subject_id) % main('AA181')
                         end
                         average_action_probability = average_action_probability + ap ;
                         count = count + 1;
-                         accuracy_count = accuracy_count +1;
+                        accuracy_count = accuracy_count +1;
                 
                     end
                 end
