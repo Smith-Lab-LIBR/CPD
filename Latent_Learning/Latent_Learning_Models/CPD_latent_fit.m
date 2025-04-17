@@ -188,10 +188,14 @@ end
 trials = U;
 L = 0;
 decay_type = M.decay_type;
-model_output = M.model(params, trials, 0, decay_type, M.DCM); 
+sim = true;
+model_output = M.model(params, trials, decay_type, M.DCM); 
 
 
 
+if M.DCM.sim == true
+    trials = model_output.simmed_choices;
+end
 
 action_probabilities = model_output.patch_action_probs;
 count = 0;

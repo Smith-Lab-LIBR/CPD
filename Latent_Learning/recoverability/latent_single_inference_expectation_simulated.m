@@ -1,15 +1,18 @@
 % testing call
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
-function [action_probs, choices] = latent_single_inference_expectation_simulated(params, trials, decay_type)
-% param_names = fieldnames(params);
-% for k = 1:length(param_names)
-%     param_name = param_names{k};
-%     param_value = params.(param_name);
-%     fprintf('%s: %f \n',param_name, param_value);
-% 
-% end
+function model_output = latent_single_inference_expectation_simulated(params, trials, decay_type,settings)
+% note that action_prob corresponds to the probability of opening a
+% patch, but dot_motion_action_prob corresponds to the probability of
+% accepting the dot motion
+num_irregular_rts = 0;
+patch_choice_action_prob = nan(2,290);
+patch_choice_model_acc = nan(2,290);
 
+dot_motion_action_prob = nan(2,290);
+dot_motion_model_acc = nan(2,290);
+
+dot_motion_rt_pdf = nan(2,290);
 rng(1);
 choices = [];
 
@@ -17,13 +20,13 @@ learning_rate = params.reward_lr;
 %learning_rate =0.453788;
 latent_learning_rate = params.latent_lr;
 %latent_learning_rate = 0.047468;
-latent_learning_rate_new = 0.138775;
+latent_learning_rate_new = 0;
 %latent_learning_rate_new = params.new_latent_lr;
 %latent_learning_rate_existing = params.existing_latent_lr;
 inverse_temp = params.inverse_temp;
 %inverse_temp = 8.4;
 %reward_prior = 0;
-reward_prior = params.reward_prior;
+reward_prior = 0;
 if isfield(params, 'decay')
     decay_rate = params.decay;
 end
@@ -118,6 +121,36 @@ for trial = 1:length(trials)
             choice = find(cumsum(action_probabilities) >= u, 1);
             choice = choice - 1; % match the coding of choices from task
             choices{trial}(t,:) = choice;
+            if settings.use_DDM
+                patch_choice_prob =  action_probabilities(choice+1);
+                if contains(settings.drift_mapping, 'action_prob')
+                    drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                else
+                    drift = params.drift;
+                end
+                if contains(settings.bias_mapping, 'action_prob')
+                    starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                else
+                    starting_bias = params.starting_bias;
+                end
+                % negative drift and lower bias entail greater probability of
+                % accepting dot motion, so we check if the person accepted, then
+                % flip the sign if necessary
+                if  current_trial.accepted_dot_motion(t+1) 
+                    drift = drift * -1;
+                    starting_bias = 1 - starting_bias;
+                end
+                % if contains(settings.threshold_mapping, 'action_prob')
+                %     decision_thresh_untransformed = params.thresh_baseline + params.thresh_mod*(patch_choice_prob - .5);
+                %     % softplus function to keep positive
+                %     decision_thresh = log(1+exp(decision_thresh_untransformed));
+                % else
+                %     decision_thresh = params.decision_thresh;
+                % end
+         
+
+            end
+            
             if choice == result
                 trial_over = 1;
                 % update latent_state_distribution
@@ -161,7 +194,33 @@ for trial = 1:length(trials)
                 % [m, choice] = max(action_probabilities);
                 choice = choice - 1; % match the coding of choices from task
                 choices{trial}(t,:) = choice;
-            
+                if settings.use_DDM
+                    patch_choice_prob =  action_probabilities(choice+1);
+                    if contains(settings.drift_mapping, 'action_prob')
+                        drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                    else
+                        drift = params.drift;
+                    end
+                    if contains(settings.bias_mapping, 'action_prob')
+                        starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                    else
+                        starting_bias = params.starting_bias;
+                    end
+                    % if contains(settings.threshold_mapping, 'action_prob')
+                    %     decision_thresh_untransformed = params.thresh_baseline + params.thresh_mod*(patch_choice_prob - .5);
+                    %     % softplus function to keep positive
+                    %     decision_thresh = log(1+exp(decision_thresh_untransformed));
+                    % else
+                    %     decision_thresh = params.decision_thresh;
+                    % end
+                    % negative drift and lower bias entail greater probability of
+                    % accepting dot motion, so we check if the person accepted, then
+                    % flip the sign if necessary
+                    if  current_trial.accepted_dot_motion(t+1) 
+                        drift = drift * -1;
+                        starting_bias = 1 - starting_bias;
+                    end
+                end
                 % update latent_state_distribution
                 
                 % reward_probabilities = (latent_state_rewards+exp(-16))./sum(latent_state_rewards+exp(-16),2);
@@ -193,9 +252,16 @@ for trial = 1:length(trials)
            trial_over = 1;
            t = t+1;
         end
-       
-
-
+        [simmed_rt, accepted_dot_motion] = simulate_DDM(drift, params.decision_thresh, params.nondecision_time, starting_bias, 1, .001, realmax);
+        if accepted_dot_motion
+           current_trial.result(t+1) = choice == result; % result column is 1 if accepted correct dot motion
+           current_trial.accepted_dot_motion(t+1) = 1;
+        end
+        
+        
+        current_trial.accept_reject_rt(t+1) = simmed_rt;
+        trials{trial} = current_trial;
+        
         %if the prospective latent state is the max, we sub out our current latent state distribution and replace it with the new one
         
     end
@@ -220,7 +286,18 @@ for trial = 1:length(trials)
         end
    % lr_coef = lr_coef-1;
 end
+model_output.patch_choice_action_prob = action_probs;
+model_output.patch_choice_model_acc = patch_choice_model_acc;
+model_output.dot_motion_action_prob = dot_motion_action_prob;
+model_output.dot_motion_model_acc = dot_motion_model_acc;
+model_output.dot_motion_rt_pdf = dot_motion_rt_pdf;
+model_output.num_irregular_rts = num_irregular_rts;
+%if settings.sim%
+    model_output.simmed_trials = trials;
+%end
+model_output.choices = choices;
 end
+
 
 
 %% Helper functions. Most of these unused for now but kept for posterity! %%

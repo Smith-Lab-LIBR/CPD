@@ -105,6 +105,7 @@ M.pE    = pE;                            % prior means (parameters)
 M.pC    = pC;                            % prior variance (parameters)
 M.model = DCM.model;
 M.decay_type = DCM.decay_type;
+M.DCM = DCM;
 
 
 % Variational Laplace
@@ -162,11 +163,17 @@ end
 trials = U;
 L = 0;
 decay_type = M.decay_type;
-action_probabilities = M.model(params, trials, decay_type);    
+
+model_output = M.model(params, trials, decay_type, M.DCM);    
 count = 0;
 average_accuracy = 0;
 average_action_probability = 0;
 accuracy_count = 0;
+action_probabilities = model_output.action_probabilities;
+if M.DCM.sim == true
+    trials = model_output.simmed_choices;
+end
+
 for t = 1:length(trials)
     trial = trials{t};
     responses = trial.response;

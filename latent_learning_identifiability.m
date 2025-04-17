@@ -1,186 +1,4 @@
-% %% Read all participants 
-% clear
-% close all
-% 
-% multi_action = 1;
-% 
-% SUFFIX = "_trials_CPD_indv";
-% all_sub_ids = readtable('/Users/nli/Desktop/CPD/Data/T475_list.csv');
-% all_sub_ids = table2cell(all_sub_ids);
-% out_directory = "/Users/nli/Desktop/CPD/Data/Individual_file_mat/";
-% base_path = "/Users/nli/Desktop/CPD/Data/processed_real_trials/"; 
-% file_paths = cell(1, numel(all_sub_ids)); 
-% 
-% for i = 1:numel(all_sub_ids)
-%     file_paths{i} = fullfile(base_path,[all_sub_ids{i} '-T0-_CPD-R1-_BEH.csv']);
-% end
-% 
-% 
-% for i = 1:numel(file_paths)
-%    try
-%     CPD = readtable(file_paths{i});
-%     [~, filename, ~] = fileparts(file_paths{i});
-%     parts = split(filename, '-');
-%     subject_id = parts{1};
-%     CPD = CPD(:, {'event_code', 'response', 'result'});
-%     % Read the CSV file into a matrix
-%     third_column = CPD{:, 1}; % event_code 
-%     % Convert the table to a matrix
-% 
-%     % Extract rows with the value 8 in the third column
-%     CPD = CPD(third_column == 8 | third_column == 9, :); %7-target (0,1,2-> left, bottom, or right ) 
-%                                                          %8-search sequence
-%                                                          %9-accuracy
-%         %1-trial number
-%         %2-trial type (1-6, 1:3:9, 7, 1:1:1);
-%         %3-event code
-%            %7-target (0,1,2-> left, bottom, or right )
-%            %8-search sequence
-%            %9-accuracy
-%     CPD_data = CPD(:, {'event_code','response', 'result'});
-% 
-%         varNames = {'event_code','response', 'result'};
-%         varTypes = {'double','double', 'double'};
-%         num_rows = height(CPD_data);
-%         % CPD_data.response = str2double(CPD_data.response);
-%         trials = {};
-%         trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-%         if multi_action == 1    
-%             for i = 1:num_rows
-%                 row = CPD_data(i,:);
-% 
-%                 if row.event_code ~= 9
-%                     trial = [trial; row];
-%                 else
-%                     trials{end+1} = trial;
-%                     trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-%                 end
-%             end
-% 
-%         else
-%             for i = 1:num_rows
-%                 row = CPD_data(i,:);
-%                 trial = [trial; row];
-%                 trials{end+1} = trial;
-%                 trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-%             end
-%         end
-% 
-%         output_filename = out_directory + subject_id + SUFFIX;
-%         save(output_filename, 'trials'); 
-% 
-% 
-%   catch ME
-%     disp(['An error occurred: ', subject_id, ME.message]);
-%   end
-% 
-% end
-
-% %% Single Subject
-% 
-%%%%% Read in Data %%%%%%
-%clear
-%close all
-
-% rng('shuffle')
-% multi_action = 1;
-% if ispc
-%     root = 'C:/';
-%     %root = 'L:/';
-% elseif isunix 
-%     root = '/media/labs/';  
-% end
-
-% 
-% %CPD = readtable('L:/rsmith/lab-members/rhodson/CPD/AD421-T0-_CPD-R1-_BEH');
-% CPD = readtable('/Users/nli/Desktop/CPD/AC609-T0-_CPD-R1-_BEH.csv');
-% CPD = CPD(:, {'event_code', 'response', 'result'});
-% % Read the CSV file into a matrix
-% third_column = CPD{:, 1};
-% % Convert the table to a matrix
-% 
-% % Extract rows with the value 8 in the third column
-% CPD = CPD(third_column == 8 | third_column == 9, :);
-% CPD_data = CPD(:, {'event_code','response', 'result'});
-% 
-%     varNames = {'event_code','response', 'result'};
-%     varTypes = {'double','double', 'double'};
-%     num_rows = height(CPD_data);
-%     CPD_data.response = str2double(CPD_data.response);
-%     trials = {};
-%     trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-%     if multi_action == 1    
-%         for i = 1:num_rows
-%             row = CPD_data(i,:);
-% 
-%             if row.event_code ~= 9
-%                 trial = [trial; row];
-%             else
-%                 trials{end+1} = trial;
-%                 trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-%             end
-%         end
-% 
-%     else
-%         for i = 1:num_rows
-%             row = CPD_data(i,:);
-%             trial = [trial; row];
-%             trials{end+1} = trial;
-%             trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-%         end
-%     end
-%     save('CPD_trials.mat', 'trials'); 
-% 
-% 
-% 
-% % if ~exist('trials', 'var')
-% %     trials = load('CPD_trials.mat', 'trials').trials;
-% % else
-% %     if ispc
-% %         CPD = readtable('L:/rsmith/lab-members/rhodson/CPD/df_reaction_time.csv');
-% %     else
-% %         CPD = readtable([root '/rsmith/lab-members/rhodson/CPD/df_reaction_time.csv'], 'FileType', 'text');
-% %     end
-% % 
-% % 
-% %     CPD_data = CPD(:,{'response', 'result', 'id', 'LC_Category'});
-% %     CPD_data = CPD(:,{'response', 'result', 'id', 'LC_Category'});  
-% %     varNames = {'response', 'result', 'id', 'LC_Category'};
-% %     varTypes = {'double', 'double', 'cell', 'cell'};
-% %     num_rows = 350;%height(CPD_data);
-% %     trials = {};
-% %     trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-% %     if multi_action == 1    
-% %         for i = 1:num_rows
-% %             row = CPD_data(i,:);
-% %             trial = [trial; row];
-% %             if height(trial) == 3 || row.result == 1
-% %                 trials{end+1} = trial;
-% %                 trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-% %             end
-% %         end
-% % 
-% %     else
-% %         for i = 1:num_rows
-% %             row = CPD_data(i,:);
-% %             trial = [trial; row];
-% %             trials{end+1} = trial;
-% %             trial = table('Size', [0, numel(varNames)],'VariableNames', varNames, 'VariableTypes', varTypes);
-% %         end
-% %     end
-% %       save('CPD_trials.mat', 'trials'); 
-% %   end
-% 
-% %addpath([root '/rsmith/all-studies/util/spm12/']);
-% addpath([root '/rsmith/all-studies/util/spm12/toolbox/DEM/']);
-% addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/')
-% addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/')
-
-% error_messages = {};
-
-%
-
-function [] = main(subject_id)
+function [] = latent_learning_identifiability(subject_id, trials, generating_model)
     DCM.use_DDM = false;
 
     dbstop if error; 
@@ -194,22 +12,8 @@ function [] = main(subject_id)
     elseif isunix 
         root = '/media/labs/';  
     end
+    MDP.trials = trials;
     addpath(['../..']); % add parent of parent directory to path
-    % for i = 1:numel(all_sub_ids)
-    %     subject_id = all_sub_ids{i};
-      % try 
-    % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    % data_dir = [root 'rsmith/lab-members/nli/CPD_updated/Individual_file_mat'];
-    % filename = fullfile(data_dir, [subject_id '_trials_CPD_indv.mat']);
-   % load(filename);
-
-    trials = load_CPD_data(root,subject_id);
-
-    trial_num = 1;
-    while(trial_num <= numel(trials)) %&& all(strcmp(trials{trial_num}.id,'AA181')))
-        MDP.trials{trial_num} = trials{trial_num};
-        trial_num = trial_num + 1;
-    end
     %%%%%%%%%%%%%%
     addpath([root 'rsmith/lab-members/clavalley/MATLAB/spm12/']);
     addpath([root 'rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/']);  
@@ -223,8 +27,8 @@ function [] = main(subject_id)
     % all_sub_ids = readtable('/media/labs/rsmith/lab-members/nli/CPD_updated/T475_list.csv');
     % all_sub_ids = table2cell(all_sub_ids);
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    %outer_fit_list = {@CPD_latent_multi_inference_expectation, @CPD_latent_multi_inference_max, @CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_single_inference_expectation_2rl};
-     outer_fit_list = {@CPD_latent_single_inference_expectation};
+    outer_fit_list = {@CPD_latent_multi_inference_expectation, @CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_single_inference_expectation_2rl};
+    % outer_fit_list = {@CPD_latent_multi_inference_m};
 
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_multi_inference_max};
@@ -262,18 +66,16 @@ function [] = main(subject_id)
             DCM.MDP.new_latent_lr = new_latent_lr;
             %DCM.MDP.existing_latent_lr = existing_latent_lr;
             DCM.MDP.inverse_temp = inverse_temp;
-            DCM.MDP.reward_prior = reward_prior;
+           % DCM.MDP.reward_prior = reward_prior;
             DCM.model = model_handle;
-            if strcmp(inner_fit_list{j}, 'vanilla')
-                 DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'reward_prior'}; % Parameter field
-                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
-                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/2rl/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
-            elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
-                DCM.MDP.decay = decay;
-                DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr', 'decay'}; % Parameter field
-                %DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'new_latent_lr' 'latent_lr' 'decay'}; % Parameter field
-                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), decay_type);
-                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type);
+           folder_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/identifiability/%s/latent_learning/'], generating_model);
+            if ~exist(folder_name, 'dir')
+                mkdir(folder_name);
+            end
+            if j == 1
+                 DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr'}; % Parameter field
+                 
+                 filename = sprintf('%s_individual_%s.csv', subject_id, func2str(DCM.model));
             else
                 DCM.MDP.decay = decay;
                 DCM.MDP.forget_threshold = forget_threshold; 
@@ -316,10 +118,11 @@ function [] = main(subject_id)
 
             end
 
-            DCM.sim = false;
+            DCM.sim = true;
             DCM.U = MDP.trials;
             DCM.Y = 0;
             DCM.decay_type = decay_type;
+            DCM.sim = false;
             CPD_fit_output= CPD_latent_fit(DCM);
             
             % we have the best fit model parameters. Simulate the task one more time to
@@ -376,7 +179,6 @@ function [] = main(subject_id)
             % rerun model a final time
             L = 0;
             model_output = DCM.model(params, trials, decay_type, DCM); 
-            latent_state_rewards = model_output.reward_probabilities;
             action_probabilities = model_output.patch_action_probs;
             count = 0;
             average_accuracy = 0;
@@ -433,15 +235,12 @@ function [] = main(subject_id)
           
             %save(file_name)
             output = struct();
-            filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/latent_states/%s_individual_%s_latent_states.csv'], subject_id, func2str(DCM.model));
             output.subject = subject_id;
-            output.latent_state_rewards = latent_state_rewards;
-            output.num_states = size(latent_state_rewards,1);
             output.reward_lr = params.reward_lr;
             output.latent_lr = params.latent_lr;
             %output.new_latent_lr = params.new_latent_lr;
             output.inverse_temp = params.inverse_temp;
-            output.reward_prior = params.reward_prior;
+            %output.reward_prior = params.reward_prior;
             if isfield(params, 'decay')
                 output.decay = params.decay;
                 
@@ -450,26 +249,14 @@ function [] = main(subject_id)
                 output.froget_threshold = params.forget_threshold;
             end
       
-            % Remove the matrix field from the struct before turning into a table
-            metadata = rmfield(output, 'latent_state_rewards');
-
-% Convert to table (safe now that it's all scalar-compatible)
-            %metadata_table = struct2table(metadata, 'AsArray', true);
-
-% Save metadata
-            %writetable(metadata_table, 'metadata.csv');
-
-% Save matrix separately
-            writematrix(output.latent_state_rewards, filename_latent_states);
-
+        
             output.patch_choice_avg_action_prob = accuracy;
             output.patch_choice_model_acc = action_accuracy;
-            % output.dot_motion_avg_action_prob = mean(model_output.dot_motion_action_prob(~isnan(model_output.dot_motion_action_prob)));
-            % output.dot_motion_model_acc = mean(model_output.dot_motion_model_acc(~isnan(model_output.dot_motion_model_acc)));
+            
             output.LL = L;
             output.free_energy = CPD_fit_output.F; 
         
-        %writetable(struct2table(output), filename);
+        writetable(struct2table(output), [folder_name filename]);
         end
     end
 end

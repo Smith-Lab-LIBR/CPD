@@ -1,15 +1,9 @@
 % get probabilities of true action for each trial 
 
-function action_probs = CPD_RW_Model(params, trials, decay_type)
+function model_output = CPD_RW_Model(params, trials, decay_type, settings)
 
 % parameters assignment
-choices = [];
-% learning_rate = 0.3;
-% inverse_temp = 0.5;
-% initial_value = 0;
-% reward_prior_1 = 0;
-% reward_prior_2 = 0;
-% reward_prior_3 = 0;
+
 
 learning_rate = params.reward_lr;
 inverse_temp = params.inverse_temp;
@@ -17,10 +11,10 @@ reward_prior = params.reward_prior;
 if isfield(params, 'decay')
     decay_rate = params.decay;
 end
-
+%rng(1);
 % loop over each trial 
 choice_rewards = [reward_prior, reward_prior, reward_prior];
-
+choices = trials;
 % retrieve true action/s and results 
 for trial = 1:length(trials)
     current_trial = trials{trial};
@@ -36,6 +30,7 @@ for trial = 1:length(trials)
         decay_rate = params.decay;
         choice_rewards = rl_decay(choice_rewards, reward_prior, true_action + 1, decay_rate);
     end
+     time_points = choices{trial};
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t, 1).response;
          if ~isempty(correct_choices)
@@ -48,11 +43,14 @@ for trial = 1:length(trials)
             %% simulate actions
             action_probabilities =reward_probabilities;
             action_probs{trial}(t,:) = action_probabilities;
-            u = rand(1,1);
+            u = rand(1, 1);
             choice = find(cumsum(action_probabilities) >= u, 1);
-
-            choice = choice-1;
-            choices{trial}(t, :)= choice;
+            choice = choice - 1;
+            
+            time_points.response(t+1) = choice;
+            if settings.sim
+                true_action = choice;
+            end
             
             if trial_length > 1
                prediction_error = learning_rate*(-1 - (choice_rewards(:, true_action+1)));
@@ -76,10 +74,11 @@ for trial = 1:length(trials)
                 action_probabilities = sum(reward_probabilities, 1);
                 action_probs{trial}(t,:) = action_probabilities;
                 
-                u = rand(1,1);
+                 u = rand(1, 1);
                 choice = find(cumsum(action_probabilities) >= u, 1);
-                choice = choice - 1; % match the coding of choices from task
-                choices{trial}(t,:) = choice;
+                choice = choice - 1;
+                
+                time_points.response(t+1) = choice;
 
                 columnIndices = true(1, 3);
                 columnIndices(previous_result_idx) = false;
@@ -88,9 +87,16 @@ for trial = 1:length(trials)
                 choice_rewards(:, columnIndices) = choice_rewards(:, columnIndices) + prediction_error;
             end
         end
+        if ((settings.sim == true && choice == correct_choice) || t == 2)
+            time_points.result(t+1) = (choice == correct_choice);
+            break
+        end
     end
+    time_points = time_points(1:t+1,:);
+    choices{trial} = time_points;
 end
-
+model_output.action_probs = action_probs;
+model_output.simmed_choices = choices;
 end
 
 

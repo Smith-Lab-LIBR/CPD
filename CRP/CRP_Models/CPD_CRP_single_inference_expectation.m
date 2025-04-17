@@ -1,7 +1,13 @@
-function action_probs = CPD_CRP_single_inference_expectation(params, trials, decay_type)
+function model_output = CPD_CRP_single_inference_expectation(params, trials, decay_type, settings)
 
 rng(1)
-choices = [];
+param_names = fieldnames(params);
+for k = 1:length(param_names)
+    param_name = param_names{k};
+    param_value = params.(param_name);
+    fprintf('%s: %f \n',param_name, param_value);
+
+end
 
 learning_rate = params.reward_lr;
 inverse_temp = params.inverse_temp;
@@ -25,6 +31,7 @@ t_latent_state_counts = 1;
 temporal_mass = zeros(1, 1);
 temporal_mass(1,1) = 1;
 timestep = 1;
+choices = trials;
 % retrieve true action/s and results
 for trial = 1:length(trials)
     current_trial = trials{trial};
@@ -46,7 +53,7 @@ for trial = 1:length(trials)
         [latent_state_counts, latent_state_rewards, temporal_mass, total_counts] = crp_temporal_weighting_decay(decay_rate, temporal_mass, latent_state_rewards, forget_threshold);
         t_latent_state_counts = total_counts;
     end
-    
+    time_points = choices{trial};
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t, 1).response;
         if ~isempty(correct_choices)
@@ -66,8 +73,11 @@ for trial = 1:length(trials)
             u = rand(1, 1);
             choice = find(cumsum(action_probabilities) >= u, 1);
             choice = choice - 1;
-            choices{trial}(t, :) = choice;
-
+            
+            time_points.response(t+1) = choice;
+            if settings.sim
+                true_action = choice;
+            end
             if trial_length == 1 % QUESTION
                 % update belief over latent states
                 % contruct prior based on CRP
@@ -108,7 +118,11 @@ for trial = 1:length(trials)
                 
                
 
-                previous_result_idx = true_actions(t-1,1).response + 1;
+                if settings.sim
+                    previous_result_idx = choice + 1;
+                else
+                    previous_result_idx = true_actions(t-1, 1).response + 1;
+                end
                 outcome = zeros(1,3);   
                 outcome = outcome - 1;
                 outcome(correct_choice + 1) = 1;
@@ -119,10 +133,10 @@ for trial = 1:length(trials)
 
                 action_probabilities = sum(latent_states_distribution' .* reward_probabilities, 1);
                 action_probs{trial}(t,:) = action_probabilities;
-                u = rand(1, 1);
+                u = rand(1,1);
                 choice = find(cumsum(action_probabilities) >= u, 1);
                 choice = choice - 1;
-                choices{trial}(t, :) = choice;
+                time_points.response(t+1) = choice;
                 
                 % CRP prior 
                 new_latent_states_distribution = latent_state_counts/(t_latent_state_counts + alpha);
@@ -163,9 +177,18 @@ for trial = 1:length(trials)
                 timestep = timestep + 1;
             end
         end
+        if ((settings.sim == true && choice == correct_choice) || t == 2)
+            time_points.result(t+1) = (choice == correct_choice);
+            break
+        end
     end
+    time_points = time_points(1:t+1,:);
+    choices{trial} = time_points;
 
 end
+model_output.action_probabilities = action_probs;
+model_output.simmed_choices = choices;
+model_output.reward_probabilities = reward_probabilities;
 
 end
 

@@ -79,8 +79,7 @@
 % %% Single Subject
 % 
 %%%%% Read in Data %%%%%%
-%clear
-%close all
+
 
 % rng('shuffle')
 % multi_action = 1;
@@ -173,15 +172,10 @@
 % 
 % %addpath([root '/rsmith/all-studies/util/spm12/']);
 % addpath([root '/rsmith/all-studies/util/spm12/toolbox/DEM/']);
-% addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/')
-% addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/')
 
-% error_messages = {};
 
-%
-
-function [] = main_CRP_test(subject_id)
-    seed = subject_id(end-2:end);
+function [] = rl_main(subject_id)
+     seed = subject_id(end-2:end);
     seed = str2double(seed);
     rng(seed);
     
@@ -208,28 +202,17 @@ function [] = main_CRP_test(subject_id)
     %%%%%%%%%%%%%%
     addpath([root 'rsmith/lab-members/clavalley/MATLAB/spm12/']);
     addpath([root 'rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/']);  
-    % addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/');
-    % addpath('/Volumes/labs/rsmith/lab-members/clavalley/MATLAB/spm12/toolbox/DEM/'); 
-    % %cd("/media/labs/rsmith/lab-members/nli/CPD/matlab_scripts/")
+
+    %cd("/media/labs/rsmith/lab-members/nli/CPD/matlab_scripts/")
     %%%%% Set Priors %%%%%%%
     reward_lr = 0.1;
-     latent_lr = 0.5;
-     alpha = 1;
+    % latent_lr = 0.5;
+    % new_latent_lr = 0.1;
     inverse_temp = 1;
     reward_prior = 0;
     decay = 0.8;
-    forget_threshold = 0.05;
-    %alpha = 1; 
-    
-    %% Fit each subject and keep the list of Free energy, 
-    % all_sub_ids = readtable('/media/labs/rsmith/lab-members/nli/CPD_updated/T475_list.csv');
-    % all_sub_ids = table2cell(all_sub_ids);
-    % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
-    %outer_fit_list = {@CPD_CRP_multi_inference_expectation, @CPD_CRP_multi_inference_max, @CPD_CRP_single_inference_expectation, @CPD_CRP_single_inference_max};
-    outer_fit_list = {@CPD_CRP_multi_inference_expectation, @CPD_CRP_single_inference_expectation};
-    %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
-    inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget'};
-    %inner_fit_list = {'temporal_forget'};
+   outer_fit_list = {@CPD_RW_single};
+    inner_fit_list = {'vanilla', 'basic'};
     F_CRP_model = [];
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
@@ -237,59 +220,37 @@ function [] = main_CRP_test(subject_id)
     for i = 1:length(outer_fit_list)
         model_handle = outer_fit_list{i};
         for j = 1:length(inner_fit_list)
-            if exist('DCM', 'var') && isfield(DCM, 'MDP')
-                DCM = rmfield(DCM, 'MDP');
-            end
-            reward_lr = 0.1;
-            latent_lr = 0.5;
-            alpha = 1;
-            inverse_temp = 1;
-            reward_prior = 0;
-            decay = 0.8;
-            forget_threshold = 0.05;
-            if strcmp(inner_fit_list{j}, 'vanilla')
-                 decay_type = "";
-            elseif strcmp(inner_fit_list{j}, 'basic_forget')
-                decay_type = "basic";
-            elseif strcmp(inner_fit_list{j}, 'temporal_forget')
-                decay_type = "temporal";
+            if j == 1
+                decay_type = "";
             else
-                 decay_type = inner_fit_list{j};
+                decay_type = inner_fit_list{j};
             end
 
             DCM.MDP.reward_lr = reward_lr;
-            DCM.MDP.latent_lr = latent_lr;
-            DCM.MDP.alpha = alpha;
             %DCM.MDP.existing_latent_lr = existing_latent_lr;
             DCM.MDP.inverse_temp = inverse_temp;
             DCM.MDP.reward_prior = reward_prior;
             DCM.model = model_handle;
-            if strcmp(inner_fit_list{j}, 'vanilla')
-                 DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha'}; % Parameter field
-                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
-                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_csv/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
-            elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
-                DCM.MDP.decay = decay;
-                DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha', 'decay'}; % Parameter field
-                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), decay_type);
-                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_csv/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type);
+            if j == 1
+                 DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior'}; % Parameter field
+                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
+                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_csv/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
             else
                 DCM.MDP.decay = decay;
-                DCM.MDP.forget_threshold = forget_threshold; 
-                DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'latent_lr' 'alpha', 'decay', 'forget_threshold'}; % Parameter field
-                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_mat/%s_individual_%s_%s_forget.mat'], subject_id, func2str(DCM.model), decay_type);
-                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/ind_csv/%s_individual_%s_%s_forget.csv'], subject_id, func2str(DCM.model), decay_type);
+                DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'decay' }; % Parameter field
+                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), decay_type);
+                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_csv/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type);
             end
 
             DCM.U = MDP.trials;
             DCM.Y = 0;
             DCM.decay_type = decay_type;
-            CPD_fit_output= CPD_CRP_fit_test(DCM);
+            DCM.sim = false;
+            CPD_fit_output= CPD_RL_fit(DCM);
             
             % we have the best fit model parameters. Simulate the task one more time to
             % get the average action probability and accuracy with these best-fit
             % parameters
-            params = struct();
             if isfield(CPD_fit_output.Ep, 'reward_lr')
                 params.reward_lr = 1/(1+exp(-CPD_fit_output.Ep.reward_lr));
             end
@@ -299,22 +260,14 @@ function [] = main_CRP_test(subject_id)
             if isfield(CPD_fit_output.Ep, 'reward_prior')
                 params.reward_prior = CPD_fit_output.Ep.reward_prior;
             end
-            if isfield(CPD_fit_output.Ep, 'latent_lr')
-                params.latent_lr = 1/(1+exp(-CPD_fit_output.Ep.latent_lr));
-            end
-            if isfield(CPD_fit_output.Ep, 'alpha')
-                params.alpha = exp(CPD_fit_output.Ep.alpha);
-            end
             if isfield(CPD_fit_output.Ep, 'decay')
                 params.decay = 1/(1+exp(-CPD_fit_output.Ep.decay)); 
             end
-            if isfield(CPD_fit_output.Ep, 'forget_threshold')
-                params.forget_threshold = 1/(1+exp(-CPD_fit_output.Ep.forget_threshold)); 
-            end
+
         
             % rerun model a final time
             L = 0;
-            action_probabilities = DCM.model(params, trials, decay_type); 
+            action_probabilities = DCM.model(params, trials, decay_type, DCM); 
             count = 0;
             average_accuracy = 0;
             average_action_probability = 0;
@@ -368,20 +321,13 @@ function [] = main_CRP_test(subject_id)
             fprintf('Final Average Accuracy: %f \n',accuracy)          
           
             save(file_name)
-            output = struct();
             output.subject = subject_id;
             output.reward_lr = params.reward_lr;
-            output.latent_lr = params.latent_lr;
-            output.alpha= params.alpha;
             output.inverse_temp = params.inverse_temp;
             output.reward_prior = params.reward_prior;
             if isfield(params, 'decay')
                 output.decay = params.decay;
-            end
-            if isfield(params, 'forget_threshold')
-                output.froget_threshold = params.forget_threshold;
-            end
-            
+            end            
             output.accuracy = accuracy;
             output.action_accuracy = action_accuracy;
             output.LL = L;
@@ -391,7 +337,3 @@ function [] = main_CRP_test(subject_id)
         end
     end
 end
-% catch ME
-    % error_messages{end+1} = sprintf('An unexpected error occurred: %s\n', subject_id, ME.message);
-% end
-

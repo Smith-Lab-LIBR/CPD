@@ -1,8 +1,8 @@
 library(ggplot2)
 
 # Define the file names (update these paths as needed)
-file1 <- "L:/rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/2params/individual_single_inference_expectation.csv"  # CSV with parameter values (set 1)
-file2 <- "L:/rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/recoverability/2params/individual_latent_single_inference_expectation_recov.csv"   # CSV with parameter values (set 2)
+file1 <- "L:/rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/2params/individual_single_inference_expectation_no_rprior.csv"  # CSV with parameter values (set 1)
+file2 <- "L:/rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/2params/individual_single_inference_expectation_no_rprior.csv"   # CSV with parameter values (set 2)
 
 # Read the CSV files
 data1 <- read.csv(file1, stringsAsFactors = FALSE)
@@ -12,7 +12,7 @@ data2 <- read.csv(file2, stringsAsFactors = FALSE)
 
 #-------------------------------------------------------------------
 # Define the list of parameters to analyze
-parameters <- c("reward_lr", "latent_lr", "reward_prior", "inverse_temp")
+parameters <- c("reward_lr", "latent_lr", "inverse_temp")
 
 #-------------------------------------------------------------------
 # Function to plot correlation between any two parameters for a given dataset.

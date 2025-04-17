@@ -89,11 +89,26 @@ for i = 1:length(DCM.field)
             pC{i,i}    = 1;
         elseif strcmp(field,'reward_prior')
             pE.(field) = DCM.MDP.reward_prior;             
+            pC{i,i}    = 0.5;  
+            
+        
+        elseif any(strcmp(field,{'drift_baseline', 'drift'}))
+            pE.(field) = DCM.MDP.(field);             
+            pC{i,i}    = 0.5;  
+        elseif any(strcmp(field,{'starting_bias', 'drift_mod', 'bias_mod'}))
+            pE.(field) = log(DCM.MDP.(field)/(1-DCM.MDP.(field)));        
+            pC{i,i}    = 0.1;  
+        elseif any(strcmp(field,{'decision_thresh'}))
+            pE.(field) = log(DCM.MDP.(field));             
+            pC{i,i}    = 1;
+        elseif any(strcmp(field,{'nondecision_time'}))
+            pE.(field) =  -log((0.3 - 0.1) ./ (DCM.MDP.(field) - 0.1) - 1);             
             pC{i,i}    = 0.5;        
         else
             pE.(field) = 0;      
             pC{i,i}    = prior_variance;
         end
+        
     end
 end
 
@@ -107,6 +122,8 @@ M.pC    = pC;                            % prior variance (parameters)
 M.model = DCM.model;
 M.decay_type = DCM.decay_type;
 M.simulated_choices = DCM.simulated_choices;
+
+M.DCM = DCM;
 
 % Variational Laplace
 %--------------------------------------------------------------------------
@@ -154,6 +171,15 @@ for i = 1:length(field)
         params.(field{i}) = exp(P.(field{i}));           
     elseif strcmp(field{i},'reward_prior')
         params.(field{i}) = P.(field{i});
+        %%% DDM Parameters
+    elseif any(strcmp(field{i},{'drift_baseline', 'drift'}))
+        params.(field{i}) = P.(field{i});
+    elseif any(strcmp(field{i},{'starting_bias', 'drift_mod', 'bias_mod'}))
+        params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
+    elseif any(strcmp(field{i},{'decision_thresh'}))
+        params.(field{i}) = exp(P.(field{i}));
+    elseif any(strcmp(field{i},{'nondecision_time'}))
+        params.(field{i}) = 0.1 + (0.3 - 0.1) ./ (1 + exp(-P.(field{i})));     
     else
         mdp.(field{i}) = exp(P.(field{i}));
     end
@@ -163,14 +189,14 @@ end
 trials = U;
 L = 0;
 decay_type = M.decay_type;
-action_probabilities = M.model(params, trials, decay_type, M.simulated_choices);    
+model_output = M.model(params, trials, decay_type, M.simulated_choices, M.DCM);    
+action_probabilities = model_output.patch_action_probs;
 count = 0;
 average_accuracy = 0;
 average_action_probability = 0;
 accuracy_count = 0;
 for t = 1:length(trials)
-    trial = M.simulated_choices{t};
-   
+    trial = M.simulated_choices{t};   
     first_choice = trial(1,1);
     if height(trial) > 1 
         second_choice = trial(2,1);
@@ -206,7 +232,11 @@ for t = 1:length(trials)
 end
 action_accuracy = average_action_probability/count;
 accuracy = average_accuracy/accuracy_count;
-    
+if M.DCM.use_DDM
+    rt_pdf = model_output.dot_motion_rt_pdf;
+    all_values = rt_pdf(~isnan(rt_pdf(:)));
+    L = L + sum(log(all_values + eps));
+end    
 
  fprintf('LL: %f \n',L)
  fprintf('Average choice probability: %f \n',action_accuracy)

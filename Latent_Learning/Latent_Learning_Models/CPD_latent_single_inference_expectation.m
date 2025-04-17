@@ -1,7 +1,7 @@
 % testing call
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
-function model_output = CPD_latent_single_inference_expectation(params, trials, test, decay_type,settings)
+function model_output = CPD_latent_single_inference_expectation(params, trials, decay_type,settings)
 % note that action_prob corresponds to the probability of opening a
 % patch, but dot_motion_action_prob corresponds to the probability of
 % accepting the dot motion
@@ -23,35 +23,24 @@ end
 rng(1);
 choices = [];
 
-%% for testing %%
-if test == 1
-    data_result = [0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,1,1,1,0,0,0];
-    block_length = 1;
-    sub_block_length = length(data_result);
-    learning_rate = 0.3;
-    latent_learning_rate = 0.7;
-    latent_learning_rate_new = 0.;
-    inverse_temp = 0.5;
-    reward_prior = 0.5;
-    reward_prior_1 = params.reward_prior_1;
 
-else
-    learning_rate = params.reward_lr;
-    new_lr = 0.1;
-    latent_learning_rate = params.latent_lr;
-    latent_learning_rate_new = 0; % this parameter is not used anymore
-    inverse_temp = params.inverse_temp;
-    reward_prior = 0;
-    if isfield(params, 'decay')
-        decay_rate = params.decay;
-    end
-    if isfield(params, 'forget_threshold')
-        forget_threshold = params.forget_threshold;
-    else
-        forget_threshold = 0;
-    end
 
+learning_rate = params.reward_lr;
+new_lr = 0.1;
+latent_learning_rate = params.latent_lr;
+latent_learning_rate_new = 0; % this parameter is not used anymore
+inverse_temp = params.inverse_temp;
+reward_prior = params.reward_prior;
+if isfield(params, 'decay')
+    decay_rate = params.decay;
 end
+if isfield(params, 'forget_threshold')
+    forget_threshold = params.forget_threshold;
+else
+    forget_threshold = 0;
+end
+
+
 %%%%%%%%%%%%%%%%%%%
 %inverse_temp = 2;
 latent_states_distribution = [1]; % starts off with one 'real' latent state
@@ -67,6 +56,7 @@ new_temporal_mass = zeros(1, 2);
 new_temporal_mass(1,1) = .9;
 new_temporal_mass(1,2) = .1;
 timestep = 1;
+choices = trials;
 for trial = 1:length(trials)
     c = lr_coef/lr_coef_max;
     current_trial = trials{trial};
@@ -113,7 +103,8 @@ for trial = 1:length(trials)
                 new_latent_states_distribution = new_latent_states_distribution/sum(new_latent_states_distribution);
             end
         end
-    end
+     end
+     time_points = choices{trial};
     for t = 1:min(trial_length, 3)
         true_action = true_actions(t,1).response;
         if ~isempty(results)
@@ -130,10 +121,14 @@ for trial = 1:length(trials)
             % sample choice from latent states
             action_probabilities = sum(latent_states_distribution' .* reward_probabilities, 1);
             action_probs{trial}(t,:) = action_probabilities;
-            u = rand(1,1);
+            u = rand(1, 1);
             choice = find(cumsum(action_probabilities) >= u, 1);
-            choice = choice - 1; % match the coding of choices from task
-            choices{trial}(t,:) = choice;
+            choice = choice - 1;
+            
+            time_points.response(t+1) = choice;
+            if settings.sim
+                true_action = choice;
+            end
             reward_probabilities = proportionalNormalization(latent_state_rewards);
             next_reward_probabilities = proportionalNormalization(new_latent_state_rewards);
             %%% USE DDM to fit/simulate probability of accepting dot motion 
@@ -188,7 +183,11 @@ for trial = 1:length(trials)
          
         else      
             if ~ isempty(result) % some entries are weird and dont ever have the correct result. These might need to be discarded. TODO double check this later
-                previous_result_idx = true_actions(t-1,1).response + 1; % access the action taken in the previous trial; the value in the first column of the row corresponding to the previous trial index (t-1)
+                if settings.sim
+                    previous_result_idx = choice + 1;
+                else
+                    previous_result_idx = true_actions(t-1, 1).response + 1;
+                end
                 outcome = zeros(1,3);
                 outcome = outcome - 1;
                 outcome(result + 1) = 1;
@@ -200,11 +199,14 @@ for trial = 1:length(trials)
                 next_reward_probabilities = bsxfun(@rdivide, next_reward_probabilities, row_sums);
                 action_probabilities = sum(latent_states_distribution' .* reward_probabilities, 1);
                 action_probs{trial}(t,:) = action_probabilities;
-                u = rand(1,1);
+                u = rand(1, 1);
                 choice = find(cumsum(action_probabilities) >= u, 1);
-                % [m, choice] = max(action_probabilities);
-                choice = choice - 1; % match the coding of choices from task
-                choices{trial}(t,:) = choice;
+                choice = choice - 1;
+                
+                time_points.response(t+1) = choice;
+                if settings.sim
+                    true_action = choice;
+                end
                 
 
                 %%% USE DDM to fit/simulate probability of accepting dot motion 
@@ -276,7 +278,13 @@ for trial = 1:length(trials)
             test = 1;
            % lr_coef = lr_coef_max;
         end
+        if ((settings.sim == true && choice == result) || t == 2)
+            time_points.result(t+1) = (choice == result);
+            break
+        end
     end
+    time_points = time_points(1:t+1,:);
+    choices{trial} = time_points;
    % lr_coef = lr_coef-1;
 end
 model_output.patch_action_probs = action_probs;
@@ -284,7 +292,8 @@ model_output.dot_motion_action_prob = dot_motion_action_prob;
 model_output.dot_motion_model_acc = dot_motion_model_acc;
 model_output.dot_motion_rt_pdf = dot_motion_rt_pdf;
 model_output.num_irregular_rts = num_irregular_rts;
-    
+model_output.simmed_choices = choices; 
+model_output.reward_probabilities = reward_probabilities;
 end
 
 

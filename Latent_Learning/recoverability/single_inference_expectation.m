@@ -1,7 +1,17 @@
 % testing call
 %[action_probs, choices] = CPD_Model(1,1,1,1);
 
-function action_probs = single_inference_expectation(params, trials, test, decay_type)
+function model_output = single_inference_expectation(params, trials, test, decay_type,settings)
+% note that action_prob corresponds to the probability of opening a
+% patch, but dot_motion_action_prob corresponds to the probability of
+% accepting the dot motion
+dot_motion_action_prob = nan(2,290);
+dot_motion_model_acc = nan(2,290);
+dot_motion_rt_pdf = nan(2,290);
+num_irregular_rts = 0;
+
+
+
 param_names = fieldnames(params);
 for k = 1:length(param_names)
     param_name = param_names{k};
@@ -12,9 +22,6 @@ end
 
 rng(1);
 choices = [];
-%block_length = data.block_legnth;
-%sub_block_length = data.sub_block_length;
-%sub_block_probabilities
 
 %% for testing %%
 if test == 1
@@ -30,20 +37,13 @@ if test == 1
 
 else
     learning_rate = params.reward_lr;
-    %learning_rate = 0.606;
     new_lr = 0.1;
     latent_learning_rate = params.latent_lr;
-   % latent_learning_rate = 0.895;
-   latent_learning_rate_new = 0.46;
-   %latent_learning_rate_new = params.new_latent_lr;
-    %latent_learning_rate_new = 1;
-    %latent_learning_rate_existing = params.existing_latent_lr;
+    latent_learning_rate_new = 0; % this parameter is not used anymore
     inverse_temp = params.inverse_temp;
-    %inverse_temp = 1.7;
-    reward_prior = params.reward_prior;
-    %reward_prior = 0;
+    reward_prior = 0;
     if isfield(params, 'decay')
-        decay_rate = 1;%params.decay;
+        decay_rate = params.decay;
     end
     if isfield(params, 'forget_threshold')
         forget_threshold = params.forget_threshold;
@@ -88,7 +88,6 @@ for trial = 1:length(trials)
                 new_latent_state_rewards = latent_state_rewards; 
                 new_latent_states_distribution = latent_states_distribution;
                 new_state_mass = min(1/(length(new_latent_states_distribution) + 1),0.1);
-                %new_latent_states_distribution(new_latent_states_distribution > 0) = new_latent_states_distribution(new_latent_states_distribution > 0) * (1-new_state_mass);
                 new_temporal_mass = temporal_mass;
                 new_temporal_mass = [new_temporal_mass, zeros(size(new_temporal_mass, 1), 1)];
                 %add new prospective latent state
@@ -135,12 +134,47 @@ for trial = 1:length(trials)
             choice = find(cumsum(action_probabilities) >= u, 1);
             choice = choice - 1; % match the coding of choices from task
             choices{trial}(t,:) = choice;
-            %reward_probabilities = (latent_state_rewards+exp(-16))./sum(latent_state_rewards+exp(-16),2);
-            %next_reward_probabilities = (new_latent_state_rewards+exp(-16))./sum(new_latent_state_rewards+exp(-16),2);
-            % reward_probabilities = softmax_rows(latent_state_rewards*inverse_temp);
-            % next_reward_probabilities = softmax_rows(new_latent_state_rewards*inverse_temp);
             reward_probabilities = proportionalNormalization(latent_state_rewards);
             next_reward_probabilities = proportionalNormalization(new_latent_state_rewards);
+            %%% USE DDM to fit/simulate probability of accepting dot motion 
+            if settings.use_DDM
+                patch_choice_prob =  action_probabilities(true_action+1);
+                if contains(settings.drift_mapping, 'action_prob')
+                    drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                else
+                    drift = params.drift;
+                end
+                if contains(settings.bias_mapping, 'action_prob')
+                    starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                else
+                    starting_bias = params.starting_bias;
+                end
+                % if contains(settings.threshold_mapping, 'action_prob')
+                %     decision_thresh_untransformed = params.thresh_baseline + params.thresh_mod*(patch_choice_prob - .5);
+                %     % softplus function to keep positive
+                %     decision_thresh = log(1+exp(decision_thresh_untransformed));
+                % else
+                %     decision_thresh = params.decision_thresh;
+                % end
+                % negative drift and lower bias entail greater probability of
+                % accepting dot motion, so we check if the person accepted, then
+                % flip the sign if necessary
+                if  current_trial.accepted_dot_motion(t+1) 
+                    drift = drift * -1;
+                    starting_bias = 1 - starting_bias;
+                end
+                
+                % make sure valid trial before factoring into log likelihood
+                if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                    dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                    dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                    dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                else 
+                    num_irregular_rts = num_irregular_rts + 1;
+                end
+
+            end
+
             if t == trial_length
                 % update latent_state_distribution
                 [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, reward_probabilities, true_action, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
@@ -150,16 +184,12 @@ for trial = 1:length(trials)
                 new_prob = new_latent_states_distribution(end);
                 outcome = outcome - 1;
                 outcome(true_action + 1) = 1;
-                evidence = reward_probabilities(:,result+1);
-                evidence_new = next_reward_probabilities(:,result+1);
                 prediction_error = learning_rate * c*(outcome - latent_state_rewards);
                 prediction_error_next = learning_rate * (outcome - new_latent_state_rewards);
-                % 
+                
                 % % update latent state reward predictions weighted by latent state distribution
                 latent_state_rewards = latent_state_rewards + latent_states_distribution' .* prediction_error;
                 new_latent_state_rewards = new_latent_state_rewards + new_latent_states_distribution' .* prediction_error_next;
-                 % latent_state_rewards = latent_state_rewards + evidence .* learning_rate*outcome;
-                 % new_latent_state_rewards = new_latent_state_rewards + evidence_new .* learning_rate*outcome;
                 timestep = timestep + 1;
             end
          
@@ -182,11 +212,47 @@ for trial = 1:length(trials)
                 % [m, choice] = max(action_probabilities);
                 choice = choice - 1; % match the coding of choices from task
                 choices{trial}(t,:) = choice;
+                
+
+                %%% USE DDM to fit/simulate probability of accepting dot motion 
+                if settings.use_DDM
+                    patch_choice_prob =  action_probabilities(true_action+1);
+                    if contains(settings.drift_mapping, 'action_prob')
+                        drift = params.drift_baseline + params.drift_mod*(patch_choice_prob - .5);
+                    else
+                        drift = params.drift;
+                    end
+                    if contains(settings.bias_mapping, 'action_prob')
+                        starting_bias = .5 + params.bias_mod*(patch_choice_prob - .5);
+                    else
+                        starting_bias = params.starting_bias;
+                    end
+                    % if contains(settings.threshold_mapping, 'action_prob')
+                    %     decision_thresh_untransformed = params.thresh_baseline + params.thresh_mod*(patch_choice_prob - .5);
+                    %     % softplus function to keep positive
+                    %     decision_thresh = log(1+exp(decision_thresh_untransformed));
+                    % else
+                    %     decision_thresh = params.decision_thresh;
+                    % end
+                                % negative drift and lower bias entail greater probability of
+                    % accepting dot motion, so we check if the person accepted, then
+                    % flip the sign if necessary
+                    if  current_trial.accepted_dot_motion(t+1) 
+                        drift = drift * -1;
+                        starting_bias = 1 - starting_bias;
+                    end
+                    
+                    % make sure valid trial before factoring into log likelihood
+                    if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                        dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                        dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                        dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                    else 
+                        num_irregular_rts = num_irregular_rts + 1;
+                    end
+                end
                 % update latent_state_distribution
-                %reward_probabilities = (latent_state_rewards+exp(-16))./sum(latent_state_rewards+exp(-16),2);
-                %next_reward_probabilities = (new_latent_state_rewards+exp(-16))./sum(new_latent_state_rewards+exp(-16),2);
-                %reward_probabilities = softmax_rows(latent_state_rewards*inverse_temp);
-                %next_reward_probabilities = softmax_rows(new_latent_state_rewards*inverse_temp);
+
                 reward_probabilities = proportionalNormalization(latent_state_rewards);
                 next_reward_probabilities = proportionalNormalization(new_latent_state_rewards);
                 [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, reward_probabilities, result, latent_learning_rate,0, 1, timestep, temporal_mass, decay_type);
@@ -196,49 +262,25 @@ for trial = 1:length(trials)
                 [maxi ,idx] = max(latent_states_distribution);
                 evidence = reward_probabilities(:,result+1);
                 evidence_new = next_reward_probabilities(:,result+1);
-                % columnIndices = true(1, 3);
-                % columnIndices(previous_result_idx) = false;
-                % outcome(sub_block_result.response + 1) = 1;
-                % prediction_error = learning_rate * c* (outcome - latent_state_rewards);
-                % %prediction_error_next = learning_rate *c* (outcome(:,columnIndices)  - new_latent_state_rewards(1:end-1,columnIndices));
-                % prediction_error_next = learning_rate * (outcome- new_latent_state_rewards);
-                % 
+   
                 columnIndices = true(1, 3);
                 columnIndices(previous_result_idx) = false;
-                %outcome(sub_block_result.response + 1) = 1;
+       
                 prediction_error = learning_rate * c* (outcome(:,columnIndices) - latent_state_rewards(max_evidence,columnIndices));
-                %prediction_error_next = learning_rate *c* (outcome(:,columnIndices)  - new_latent_state_rewards(1:end-1,columnIndices));
                 prediction_error_next = learning_rate * (outcome(:,columnIndices)  - new_latent_state_rewards(max_evidence_new,columnIndices));
-                % % update latent state reward predictions weighted by latent state distribution
-                % latent_state_rewards= latent_state_rewards+ latent_states_distribution' .* prediction_error;
-                % new_latent_state_rewards = new_latent_state_rewards + new_latent_states_distribution' .* prediction_error_next;
                 latent_state_rewards(:,columnIndices) = latent_state_rewards(:,columnIndices) +  prediction_error;
                 new_latent_state_rewards(:,columnIndices) = new_latent_state_rewards(:,columnIndices) + prediction_error_next;
-                % latent_state_rewards = latent_state_rewards + evidence .* learning_rate*outcome;
-                %  new_latent_state_rewards = new_latent_state_rewards + evidence_new .* learning_rate*outcome;
-                timestep = timestep + 1;
-                %new_latent_state_rewards(1:end-1,columnIndices) = new_latent_state_rewards(1:end-1,columnIndices) + new_latent_states_distribution(1:end-1)' .* prediction_error_next;
-            else 
-       
+                timestep = timestep + 1;    
             end
           end
        
-
-
         %if the prospective latent state is the max, we sub out our current latent state distribution and replace it with the new one
         if t == trial_length && new_prob == max(new_latent_states_distribution)
        %if t == trial_length && new_prob > latent_learning_rate_new% max(new_latent_states_distribution)
            latent_states_distribution = new_latent_states_distribution;
             temporal_mass = new_temporal_mass;
-            %latent_states_distribution(end+1) = new_latent_states_distribution(end);
-            %latent_states_distribution(1:end-1) = latent_states_distribution(1:end-1) - latent_states_distribution(1:end-1) * (latent_states_distribution(end));
-            %latent_state_rewards(end+1,:) = new_latent_state_rewards(end,:);%[reward_prior_1, reward_prior_2, reward_prior_3];
-            %new_latent_states_distribution = latent_states_distribution;
             latent_state_rewards = new_latent_state_rewards;
-            new_state_mass = min(1/(length(new_latent_states_distribution) + 1),new_lr);
-            %new_state_mass = new_lr;
-            %new_latent_states_distribution(new_latent_states_distribution > 0) = new_latent_states_distribution(new_latent_states_distribution > 0) * (1-new_state_mass);
-            
+            new_state_mass = min(1/(length(new_latent_states_distribution) + 1),new_lr);          
             new_temporal_mass = [new_temporal_mass, zeros(size(new_temporal_mass, 1), 1)];
             %add new prospective latent state
             new_latent_state_rewards(end+1,:) = [reward_prior, reward_prior, reward_prior];
@@ -251,7 +293,14 @@ for trial = 1:length(trials)
     end
    % lr_coef = lr_coef-1;
 end
+model_output.patch_action_probs = action_probs;
+model_output.dot_motion_action_prob = dot_motion_action_prob;
+model_output.dot_motion_model_acc = dot_motion_model_acc;
+model_output.dot_motion_rt_pdf = dot_motion_rt_pdf;
+model_output.num_irregular_rts = num_irregular_rts;
+    
 end
+
 
 
 %% Helper functions. Most of these unused for now but kept for posterity! %%
@@ -293,10 +342,4 @@ function log_sums_bf = getBayesFactorsAggregation(models, data)
     % ratio ranks
     log_sums_bf = log_sums_bf + exp(-16);
 
-end
-
-function normArr = proportionalNormalization(arr)
-    minVal = min(arr);
-    adjusted = arr - minVal; % Shift to make all values positive
-    normArr = (adjusted + exp(-16)) ./ sum(adjusted +exp(-16),2); % Scale to sum to 1
 end
