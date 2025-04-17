@@ -63,8 +63,7 @@ for trial = 1:length(trials)
                 true_action = choice;
             end
 
-            choice = choice-1;
-            choices{trial}(t, :)= choice;
+           
 
             if settings.use_DDM
                 patch_choice_prob =  action_probabilities(true_action+1);

@@ -66,7 +66,7 @@ for trial = 1:length(trials)
         true_actions = current_trial(2,2);
     end
     trial_length = height(true_actions);
-    results = current_trial(1,3);
+    results = current_trial(1,3); % results contains the index of the correct option
 
      if trial > 1
         %% Handle Decay %%
@@ -165,13 +165,13 @@ for trial = 1:length(trials)
 
             if t == trial_length
                 % update latent_state_distribution
-                [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, reward_probabilities, true_action, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
-                [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, true_action, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
+                [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, reward_probabilities, result, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
+                [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, result, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
                 [maxi ,idx_new] = max(new_latent_states_distribution);
                 [maxi ,idx] = max(latent_states_distribution);
                 new_prob = new_latent_states_distribution(end);
                 outcome = outcome - 1;
-                outcome(true_action + 1) = 1;
+                outcome(result + 1) = 1;
                 prediction_error = learning_rate * c*(outcome - latent_state_rewards);
                 prediction_error_next = learning_rate * (outcome - new_latent_state_rewards);
                 

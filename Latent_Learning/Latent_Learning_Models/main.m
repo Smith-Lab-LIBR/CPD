@@ -180,7 +180,7 @@
 
 %
 
-function [] = main(subject_id)
+function [] = main(subject_id) % AA081
     DCM.use_DDM = true;
 
     dbstop if error; 
@@ -437,7 +437,7 @@ function [] = main(subject_id)
     
                 % rerun model a final time
                 L = 0;
-                model_output = DCM.model(params, trials, 0, decay_type, DCM); 
+                model_output = DCM.model(params, trials, decay_type, DCM); 
                 action_probabilities = model_output.patch_action_probs;
                 count = 0;
                 average_accuracy = 0;
@@ -540,8 +540,8 @@ function [] = main(subject_id)
             % Save matrix separately
             writematrix(output.latent_state_rewards, filename_latent_states);
             
-                output.patch_choice_avg_action_prob = accuracy;
-                output.patch_choice_model_acc = action_accuracy;
+                output.patch_choice_avg_action_prob = action_accuracy;
+                output.patch_choice_model_acc = accuracy;
                 output.dot_motion_avg_action_prob = mean(model_output.dot_motion_action_prob(~isnan(model_output.dot_motion_action_prob)));
                 output.dot_motion_model_acc = mean(model_output.dot_motion_model_acc(~isnan(model_output.dot_motion_model_acc)));
                 output.LL = L;

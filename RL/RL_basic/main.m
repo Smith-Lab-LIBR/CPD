@@ -298,6 +298,7 @@ function [] = main(subject_id) % main('AA181')
                 DCM.U = MDP.trials;
                 DCM.Y = 0;
                 DCM.decay_type = decay_type;
+                DCM.sim = false;
                 CPD_fit_output= CPD_RL_fit(DCM);
                 
                 % we have the best fit model parameters. Simulate the task one more time to
