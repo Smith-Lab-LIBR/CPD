@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+#SBATCH --partition=c2_cpu
+#SBATCH --ntasks=1
+#SBATCH --mem=12000
+#SBATCH --nodes=1
+#SBATCH --workdir=/media/labs/rsmith/lab-members/rhodson/CPD
+#SBATCH --begin=now
+#SBATCH --job-name=CPD_CRP_fits
+#SBATCH --time=32:00:00
+#
+#################################################
+set -euo pipefail
+subject_id="${seed}" 
+module load matlab/2022a
+cd /media/labs/rsmith/lab-members/rhodson/CPD/CPD_code/RL/RL_associability
+matlab -nodisplay -nosplash -r "main_RL_k('$subject_id')" 
