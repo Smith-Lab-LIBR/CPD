@@ -320,7 +320,7 @@ function [] = main(subject_id)
                 DCM.MDP.new_latent_lr = new_latent_lr;
                 %DCM.MDP.existing_latent_lr = existing_latent_lr;
                 DCM.MDP.inverse_temp = inverse_temp;
-               % DCM.MDP.reward_prior = reward_prior;
+                DCM.MDP.reward_prior = reward_prior;
                 DCM.model = model_handle;
                 if DCM.use_DDM
                     ddm_mapping_string = ['ddm_mapping' num2str(mapping_index)];
@@ -328,7 +328,7 @@ function [] = main(subject_id)
                     ddm_mapping_string = '';
                 end
                 if strcmp(inner_fit_list{j}, 'vanilla')
-                     DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr'}; % Parameter field
+                     DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'reward_prior'}; % Parameter field
                      file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), ddm_mapping_string);
                      filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), ddm_mapping_string);
                 elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
@@ -380,6 +380,7 @@ function [] = main(subject_id)
     
                 DCM.U = MDP.trials;
                 DCM.Y = 0;
+                DCM.sim = false;
                 DCM.decay_type = decay_type;
                 CPD_fit_output= CPD_latent_fit(DCM);
                 
@@ -509,6 +510,7 @@ function [] = main(subject_id)
           
             %save(file_name)
             output = struct();
+            latent_state_rewards = model_output.reward_probabilities;
             filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/latent_states/%s_individual_%s_latent_states.csv'], subject_id, func2str(DCM.model));
             output.subject = subject_id;
             output.latent_state_rewards = latent_state_rewards;

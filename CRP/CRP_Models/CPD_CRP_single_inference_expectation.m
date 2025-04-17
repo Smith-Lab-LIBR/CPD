@@ -186,6 +186,7 @@ for trial = 1:length(trials)
     choices{trial} = time_points;
 
 end
+reward_probabilities = softmax_rows(latent_state_rewards*inverse_temp);
 model_output.action_probabilities = action_probs;
 model_output.simmed_choices = choices;
 model_output.reward_probabilities = reward_probabilities;

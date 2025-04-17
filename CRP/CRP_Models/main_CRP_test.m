@@ -226,9 +226,9 @@ function [] = main_CRP_test(subject_id)
     % all_sub_ids = table2cell(all_sub_ids);
     % data_dir = "/Volumes/labs/rsmith/lab-members/nli/CPD_updated/Individual_file_mat";
     %outer_fit_list = {@CPD_CRP_multi_inference_expectation, @CPD_CRP_multi_inference_max, @CPD_CRP_single_inference_expectation, @CPD_CRP_single_inference_max};
-    outer_fit_list = {@CPD_CRP_multi_inference_expectation, @CPD_CRP_single_inference_expectation};
+    outer_fit_list = {@CPD_CRP_single_inference_expectation};
     %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
-    inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget'};
+    inner_fit_list = {'vanilla'};
     %inner_fit_list = {'temporal_forget'};
     F_CRP_model = [];
     LL_CRP_model = [];
@@ -284,6 +284,7 @@ function [] = main_CRP_test(subject_id)
             DCM.U = MDP.trials;
             DCM.Y = 0;
             DCM.decay_type = decay_type;
+            DCM.sim = false;
             CPD_fit_output= CPD_CRP_fit_test(DCM);
             
             % we have the best fit model parameters. Simulate the task one more time to
@@ -314,7 +315,8 @@ function [] = main_CRP_test(subject_id)
         
             % rerun model a final time
             L = 0;
-            action_probabilities = DCM.model(params, trials, decay_type); 
+            model_output = DCM.model(params, trials, decay_type, DCM); 
+            action_probabilities = model_output.action_probabilities;
             count = 0;
             average_accuracy = 0;
             average_action_probability = 0;
@@ -368,8 +370,11 @@ function [] = main_CRP_test(subject_id)
             fprintf('Final Average Accuracy: %f \n',accuracy)          
           
             save(file_name)
+            filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/crp/latent_states/%s_individual_%s_latent_states.csv'], subject_id, func2str(DCM.model));
             output = struct();
+            latent_state_rewards = model_output.reward_probabilities;
             output.subject = subject_id;
+            output.latent_state_rewards = latent_state_rewards;
             output.reward_lr = params.reward_lr;
             output.latent_lr = params.latent_lr;
             output.alpha= params.alpha;
@@ -386,8 +391,18 @@ function [] = main_CRP_test(subject_id)
             output.action_accuracy = action_accuracy;
             output.LL = L;
             output.free_energy = CPD_fit_output.F; 
+            metadata = rmfield(output, 'latent_state_rewards');
+
+            % Convert to table (safe now that it's all scalar-compatible)
+            %metadata_table = struct2table(metadata, 'AsArray', true);
+
+            % Save metadata
+            %writetable(metadata_table, 'metadata.csv');
+          
+            % Save matrix separately
+            writematrix(output.latent_state_rewards, filename_latent_states);
         
-        writetable(struct2table(output), filename);
+        %writetable(struct2table(output), filename);
         end
     end
 end
