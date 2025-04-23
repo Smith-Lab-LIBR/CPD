@@ -25,7 +25,7 @@ function [] = Identifiability(subject_id)
     folder_path = 'L:/rsmith/lab-members/rhodson/CPD/CPD_results/combined/smaller_comp';
     
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_multi_inference_expectation, @CPD_latent_multi_inference_max, @CPD_CRP_multi_inference_expectation, @CPD_CRP_single_inference_expectation, @CPD_RW_Model, @CPD_RW_single};
-    outer_fit_list = {@single_inference_expectation_2rl};
+    outer_fit_list = {@CPD_CRP_single_inference_expectation};
     %outer_fit_list = {@CPD_RW_Model, @CPD_RW_single};
     %outer_fit_list = {@CPD_latent_single_inference_max};
     %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
@@ -70,8 +70,8 @@ function [] = Identifiability(subject_id)
              model_output = model_handle(params, trials, decay_type, DCM);
 
             %% Now fit all models to this behavior
-            rl_identifiability(subject_id, model_output.simmed_choices, func2str(model_handle))
-            %CRP_identifiability(subject_id, model_output.simmed_choices, func2str(model_handle))
+            %rl_identifiability(subject_id, model_output.simmed_choices, func2str(model_handle))
+            CRP_identifiability(subject_id, model_output.simmed_choices, func2str(model_handle))
             %latent_learning_identifiability(subject_id, model_output.simmed_choices, func2str(model_handle))
             %folder_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/identifiability/%s/'],func2str(model_handle));
            % generate_pxp(folder_name, func2str(model_handle))

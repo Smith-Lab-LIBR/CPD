@@ -374,7 +374,7 @@ function [] = main_CRP_test(subject_id)
             output = struct();
             latent_state_rewards = model_output.reward_probabilities;
             output.subject = subject_id;
-            output.latent_state_rewards = latent_state_rewards;
+            %output.latent_state_rewards = latent_state_rewards;
             output.reward_lr = params.reward_lr;
             output.latent_lr = params.latent_lr;
             output.alpha= params.alpha;
@@ -391,7 +391,7 @@ function [] = main_CRP_test(subject_id)
             output.action_accuracy = action_accuracy;
             output.LL = L;
             output.free_energy = CPD_fit_output.F; 
-            metadata = rmfield(output, 'latent_state_rewards');
+            %metadata = rmfield(output, 'latent_state_rewards');
 
             % Convert to table (safe now that it's all scalar-compatible)
             %metadata_table = struct2table(metadata, 'AsArray', true);
@@ -400,9 +400,9 @@ function [] = main_CRP_test(subject_id)
             %writetable(metadata_table, 'metadata.csv');
           
             % Save matrix separately
-            writematrix(output.latent_state_rewards, filename_latent_states);
+            %writematrix(output.latent_state_rewards, filename_latent_states);
         
-        %writetable(struct2table(output), filename);
+        writetable(struct2table(output), filename);
         end
     end
 end

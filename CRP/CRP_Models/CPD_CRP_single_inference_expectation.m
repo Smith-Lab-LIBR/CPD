@@ -85,12 +85,12 @@ for trial = 1:length(trials)
                 new_latent_states_distribution(end+1) = alpha/(t_latent_state_counts + alpha);
                 latent_state_rewards(end+1,:) = [reward_prior,reward_prior,reward_prior];
                 CRP_likelihoods = softmax_rows(latent_state_rewards);
-                post = new_latent_states_distribution.*CRP_likelihoods(:, true_action+1)';
+                post = new_latent_states_distribution.*CRP_likelihoods(:, correct_choice+1)';
                 post = (post+exp(-16))/(sum((post+exp(-16))));
                 u = rand(1,1);
                 new_CRP_idx = find(cumsum(post) >= u, 1);
                 outcome = outcome - 1;
-                outcome(true_action + 1) = 1;
+                outcome(correct_choice + 1) = 1;
                 prediction_error = learning_rate*(outcome - latent_state_rewards);
                 latent_state_rewards = latent_state_rewards + post' .* prediction_error; % weighted by posterior distribution
                 if new_CRP_idx ~= length(new_latent_states_distribution)

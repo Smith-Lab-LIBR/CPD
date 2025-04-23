@@ -63,9 +63,6 @@ for trial = 1:length(trials)
                 true_action = choice;
             end
 
-            choice = choice-1;
-            choices{trial}(t, :)= choice;
-
             if settings.use_DDM
                 patch_choice_prob =  action_probabilities(true_action+1);
                 if contains(settings.drift_mapping, 'action_prob')
@@ -99,7 +96,7 @@ for trial = 1:length(trials)
             
             if t == trial_length
                 outcome = outcome -1;
-                outcome(true_action + 1) = 1;
+                outcome(correct_choice + 1) = 1;
                 prediction_error = learning_rate*(outcome - choice_rewards);
                 choice_rewards = choice_rewards + prediction_error;
             end

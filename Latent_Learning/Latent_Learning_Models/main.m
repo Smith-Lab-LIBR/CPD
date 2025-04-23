@@ -181,7 +181,7 @@
 %
 
 function [] = main(subject_id)
-    DCM.use_DDM = true;
+    DCM.use_DDM = false;
 
     dbstop if error; 
     seed = subject_id(end-2:end);
@@ -229,7 +229,7 @@ function [] = main(subject_id)
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_multi_inference_max};
     %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
-    inner_fit_list = {'vanilla', "temporal"};
+    inner_fit_list = {'vanilla'};
     F_CRP_model = [];
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
@@ -264,23 +264,7 @@ function [] = main(subject_id)
             DCM.MDP.inverse_temp = inverse_temp;
             DCM.MDP.reward_prior = reward_prior;
             DCM.model = model_handle;
-            if strcmp(inner_fit_list{j}, 'vanilla')
-                 DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'reward_prior'}; % Parameter field
-                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
-                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/2rl/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
-            elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
-                DCM.MDP.decay = decay;
-                DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr', 'decay'}; % Parameter field
-                %DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'new_latent_lr' 'latent_lr' 'decay'}; % Parameter field
-            % Test three separate mappings from choice model to DDM model
-                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type);
-            else
-                DCM.MDP.decay = decay;
-                DCM.MDP.forget_threshold = forget_threshold; 
-                DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'new_latent_lr', 'decay', 'forget_threshold'}; % Parameter field
-                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s_%s_forget.mat'], subject_id, func2str(DCM.model), decay_type);
-                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s_forget.csv'], subject_id, func2str(DCM.model), decay_type);
-            end
+          
 
             %%% set up DDM 
             if DCM.use_DDM
@@ -437,12 +421,13 @@ function [] = main(subject_id)
     
                 % rerun model a final time
                 L = 0;
-                model_output = DCM.model(params, trials, 0, decay_type, DCM); 
+                model_output = DCM.model(params, trials, decay_type, DCM); 
                 action_probabilities = model_output.patch_action_probs;
                 count = 0;
                 average_accuracy = 0;
                 average_action_probability = 0;
                 accuracy_count = 0;
+                subj_action_probs = [];
                 % compare action probabilities returned by the model to actual actions
                 % taken by participant (as we do in Loss function in CPD_fit
                 %rng(1)
@@ -454,6 +439,7 @@ function [] = main(subject_id)
                         second_choice = responses(3);
                         L = L + log(action_probabilities{t}(1,first_choice + 1) + eps)/2;
                         L = L + log(action_probabilities{t}(2,second_choice + 1) + eps)/2;
+                  
                         average_action_probability = average_action_probability + action_probabilities{t}(1,first_choice + 1);
                         [maxi, idx_first] = max(action_probabilities{t}(1,:));
                         if idx_first == first_choice +1
@@ -513,7 +499,7 @@ function [] = main(subject_id)
             latent_state_rewards = model_output.reward_probabilities;
             filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/latent_states/%s_individual_%s_latent_states.csv'], subject_id, func2str(DCM.model));
             output.subject = subject_id;
-            output.latent_state_rewards = latent_state_rewards;
+            %output.latent_state_rewards = latent_state_rewards;
             output.num_states = size(latent_state_rewards,1);
             output.reward_lr = params.reward_lr;
             output.latent_lr = params.latent_lr;
@@ -529,7 +515,7 @@ function [] = main(subject_id)
                 end
       
             % Remove the matrix field from the struct before turning into a table
-            metadata = rmfield(output, 'latent_state_rewards');
+            %metadata = rmfield(output, 'latent_state_rewards');
 
             % Convert to table (safe now that it's all scalar-compatible)
             %metadata_table = struct2table(metadata, 'AsArray', true);
@@ -538,7 +524,7 @@ function [] = main(subject_id)
             %writetable(metadata_table, 'metadata.csv');
           
             % Save matrix separately
-            writematrix(output.latent_state_rewards, filename_latent_states);
+            writematrix(latent_state_rewards, filename_latent_states);
             
                 output.patch_choice_avg_action_prob = accuracy;
                 output.patch_choice_model_acc = action_accuracy;

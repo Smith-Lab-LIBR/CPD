@@ -175,7 +175,7 @@
 
 
 function [] = main(subject_id) % main('AA181')
-    DCM.use_DDM = true;
+    DCM.use_DDM = false;
     seed = subject_id(end-2:end);
     seed = str2double(seed);
     rng(seed);
@@ -186,7 +186,7 @@ function [] = main(subject_id) % main('AA181')
     elseif isunix 
         root = '/media/labs/';  
     end
-
+     addpath(['../..']); % add parent of parent directory to path
     % for i = 1:numel(all_sub_ids)
     %     subject_id = all_sub_ids{i};
       % try 
@@ -297,6 +297,7 @@ function [] = main(subject_id) % main('AA181')
                 end
                 DCM.U = MDP.trials;
                 DCM.Y = 0;
+                DCM.sim = false;
                 DCM.decay_type = decay_type;
                 CPD_fit_output= CPD_RL_fit(DCM);
                 
