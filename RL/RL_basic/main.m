@@ -299,6 +299,7 @@ function [] = main(subject_id) % main('AA181')
                 DCM.Y = 0;
                 DCM.sim = false;
                 DCM.decay_type = decay_type;
+                DCM.sim = false;
                 CPD_fit_output= CPD_RL_fit(DCM);
                 
                 % we have the best fit model parameters. Simulate the task one more time to
@@ -405,8 +406,8 @@ function [] = main(subject_id) % main('AA181')
                     output.decay = params.decay;
                 end            
             
-                output.patch_choice_avg_action_prob = accuracy;
-                output.patch_choice_model_acc = action_accuracy;
+                output.patch_choice_avg_action_prob = action_accuracy;
+                output.patch_choice_model_acc = accuracy;
                 output.dot_motion_avg_action_prob = mean(model_output.dot_motion_action_prob(~isnan(model_output.dot_motion_action_prob)));
                 output.dot_motion_model_acc = mean(model_output.dot_motion_model_acc(~isnan(model_output.dot_motion_model_acc)));
                 output.LL = L;

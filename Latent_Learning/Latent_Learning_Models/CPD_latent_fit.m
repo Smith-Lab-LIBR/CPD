@@ -188,7 +188,6 @@ end
 trials = U;
 L = 0;
 decay_type = M.decay_type;
-sim = true;
 model_output = M.model(params, trials, decay_type, M.DCM); 
 
 

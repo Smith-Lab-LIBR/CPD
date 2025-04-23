@@ -250,8 +250,8 @@ function [] = latent_learning_identifiability(subject_id, trials, generating_mod
             end
       
         
-            output.patch_choice_avg_action_prob = accuracy;
-            output.patch_choice_model_acc = action_accuracy;
+            output.patch_choice_avg_action_prob = action_accuracy;
+            output.patch_choice_model_acc = accuracy;
             
             output.LL = L;
             output.free_energy = CPD_fit_output.F; 

@@ -180,8 +180,8 @@
 
 %
 
-function [] = main(subject_id)
-    DCM.use_DDM = false;
+function [] = main(subject_id) % AA081
+    DCM.use_DDM = true;
 
     dbstop if error; 
     seed = subject_id(end-2:end);
@@ -229,7 +229,7 @@ function [] = main(subject_id)
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_multi_inference_max};
     %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
-    inner_fit_list = {'vanilla'};
+    inner_fit_list = {'vanilla', "temporal"};
     F_CRP_model = [];
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
@@ -264,7 +264,23 @@ function [] = main(subject_id)
             DCM.MDP.inverse_temp = inverse_temp;
             DCM.MDP.reward_prior = reward_prior;
             DCM.model = model_handle;
-          
+            if strcmp(inner_fit_list{j}, 'vanilla')
+                 DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'reward_prior'}; % Parameter field
+                 file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s.mat'], subject_id, func2str(DCM.model));
+                 filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/2rl/%s_individual_%s.csv'], subject_id, func2str(DCM.model));
+            elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
+                DCM.MDP.decay = decay;
+                DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr', 'decay'}; % Parameter field
+                %DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'new_latent_lr' 'latent_lr' 'decay'}; % Parameter field
+            % Test three separate mappings from choice model to DDM model
+                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type);
+            else
+                DCM.MDP.decay = decay;
+                DCM.MDP.forget_threshold = forget_threshold; 
+                DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'new_latent_lr', 'decay', 'forget_threshold'}; % Parameter field
+                file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s_%s_forget.mat'], subject_id, func2str(DCM.model), decay_type);
+                filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s_forget.csv'], subject_id, func2str(DCM.model), decay_type);
+            end
 
             %%% set up DDM 
             if DCM.use_DDM
@@ -526,8 +542,8 @@ function [] = main(subject_id)
             % Save matrix separately
             writematrix(latent_state_rewards, filename_latent_states);
             
-                output.patch_choice_avg_action_prob = accuracy;
-                output.patch_choice_model_acc = action_accuracy;
+                output.patch_choice_avg_action_prob = action_accuracy;
+                output.patch_choice_model_acc = accuracy;
                 output.dot_motion_avg_action_prob = mean(model_output.dot_motion_action_prob(~isnan(model_output.dot_motion_action_prob)));
                 output.dot_motion_model_acc = mean(model_output.dot_motion_model_acc(~isnan(model_output.dot_motion_model_acc)));
                 output.LL = L;

@@ -460,8 +460,8 @@ function [] = recoverability_analysis(subject_id)
                 output.froget_threshold = params.forget_threshold;
             end
         
-            output.patch_choice_avg_action_prob = accuracy;
-            output.patch_choice_model_acc = action_accuracy;
+            output.patch_choice_avg_action_prob = action_accuracy;
+            output.patch_choice_model_acc = accuracy;
             output.dot_motion_avg_action_prob = mean(model_output.dot_motion_action_prob(~isnan(model_output.dot_motion_action_prob)));
             output.dot_motion_model_acc = mean(model_output.dot_motion_model_acc(~isnan(model_output.dot_motion_model_acc)));
             output.LL = L;

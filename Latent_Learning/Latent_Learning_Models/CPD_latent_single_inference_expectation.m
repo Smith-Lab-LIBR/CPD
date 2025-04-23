@@ -66,7 +66,7 @@ for trial = 1:length(trials)
         true_actions = current_trial(2,2);
     end
     trial_length = height(true_actions);
-    results = current_trial(1,3);
+    results = current_trial(1,3); % results contains the index of the correct option
 
      if trial > 1
         %% Handle Decay %%
