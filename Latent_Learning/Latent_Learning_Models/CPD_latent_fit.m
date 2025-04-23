@@ -70,7 +70,7 @@ for i = 1:length(DCM.field)
     else
         if strcmp(field,'reward_lr')
             pE.(field) = log(DCM.MDP.reward_lr/(1-DCM.MDP.reward_lr));           
-            pC{i,i}    = 2;
+            pC{i,i}    = 1;
          elseif strcmp(field,'latent_lr')
              pE.(field) = log(DCM.MDP.latent_lr/(1-DCM.MDP.latent_lr));             
              pC{i,i}    = 2;

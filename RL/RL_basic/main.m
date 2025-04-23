@@ -175,7 +175,7 @@
 
 
 function [] = main(subject_id) % main('AA181')
-    DCM.use_DDM = false;
+    DCM.use_DDM = true;
     seed = subject_id(end-2:end);
     seed = str2double(seed);
     rng(seed);
@@ -398,13 +398,22 @@ function [] = main(subject_id) % main('AA181')
                 fprintf('Final Average Accuracy: %f \n',accuracy)          
               
                 save(file_name)
+                
+
+
+
                 output.subject = subject_id;
-                output.reward_lr = params.reward_lr;
-                output.inverse_temp = params.inverse_temp;
-                output.reward_prior = params.reward_prior;
-                if isfield(params, 'decay')
-                    output.decay = params.decay;
-                end            
+                flds = fieldnames(params);
+                for i = 1:numel(flds)
+                    output.(flds{i}) = params.(flds{i});
+                end
+
+                % output.reward_lr = params.reward_lr;
+                % output.inverse_temp = params.inverse_temp;
+                % output.reward_prior = params.reward_prior;
+                % if isfield(params, 'decay')
+                %     output.decay = params.decay;
+                % end            
             
                 output.patch_choice_avg_action_prob = action_accuracy;
                 output.patch_choice_model_acc = accuracy;

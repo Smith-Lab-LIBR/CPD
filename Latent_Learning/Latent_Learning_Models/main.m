@@ -510,37 +510,46 @@ function [] = main(subject_id) % AA081
                     output.froget_threshold = params.forget_threshold;
                 end
           
-            %save(file_name)
-            output = struct();
-            latent_state_rewards = model_output.reward_probabilities;
-            filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/latent_states/%s_%s_%s_latent_states.csv'], subject_id, func2str(DCM.model), ddm_mapping_string);
-            output.subject = subject_id;
-            %output.latent_state_rewards = latent_state_rewards;
-            output.num_states = size(latent_state_rewards,1);
-            output.reward_lr = params.reward_lr;
-            output.latent_lr = params.latent_lr;
-            %output.new_latent_lr = params.new_latent_lr;
-            output.inverse_temp = params.inverse_temp;
-            output.reward_prior = params.reward_prior;
-                if isfield(params, 'decay')
-                    output.decay = params.decay;
-                    
+                %save(file_name)
+                output = struct();
+                latent_state_rewards = model_output.reward_probabilities;
+                filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/latent_states/%s_%s_%s_latent_states.csv'], subject_id, func2str(DCM.model), ddm_mapping_string);
+                output.subject = subject_id;
+    
+    
+                output.subject = subject_id;
+                flds = fieldnames(params);
+                for i = 1:numel(flds)
+                    output.(flds{i}) = params.(flds{i});
                 end
-                if isfield(params, 'forget_threshold')
-                    output.froget_threshold = params.forget_threshold;
-                end
-      
-            % Remove the matrix field from the struct before turning into a table
-            %metadata = rmfield(output, 'latent_state_rewards');
 
-            % Convert to table (safe now that it's all scalar-compatible)
-            %metadata_table = struct2table(metadata, 'AsArray', true);
 
-            % Save metadata
-            %writetable(metadata_table, 'metadata.csv');
+                %output.latent_state_rewards = latent_state_rewards;
+                % output.num_states = size(latent_state_rewards,1);
+                % output.reward_lr = params.reward_lr;
+                % output.latent_lr = params.latent_lr;
+                % %output.new_latent_lr = params.new_latent_lr;
+                % output.inverse_temp = params.inverse_temp;
+                % output.reward_prior = params.reward_prior;
+                %     if isfield(params, 'decay')
+                %         output.decay = params.decay;
+                % 
+                %     end
+                %     if isfield(params, 'forget_threshold')
+                %         output.froget_threshold = params.forget_threshold;
+                %     end
           
-            % Save matrix separately
-            writematrix(latent_state_rewards, filename_latent_states);
+                % Remove the matrix field from the struct before turning into a table
+                %metadata = rmfield(output, 'latent_state_rewards');
+    
+                % Convert to table (safe now that it's all scalar-compatible)
+                %metadata_table = struct2table(metadata, 'AsArray', true);
+    
+                % Save metadata
+                %writetable(metadata_table, 'metadata.csv');
+              
+                % Save matrix separately
+                writematrix(latent_state_rewards, filename_latent_states);
             
                 output.patch_choice_avg_action_prob = action_accuracy;
                 output.patch_choice_model_acc = accuracy;
