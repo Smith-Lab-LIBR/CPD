@@ -229,7 +229,7 @@ function [] = main(subject_id) % AA081
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max};
     %outer_fit_list = {@CPD_latent_single_inference_expectation, @CPD_latent_single_inference_max, @CPD_latent_multi_inference_max};
     %inner_fit_list = {'vanilla', 'basic', 'temporal', 'basic_forget', 'temporal_forget'};
-    inner_fit_list = {'vanilla', "temporal"};
+    inner_fit_list = {'vanilla'};
     F_CRP_model = [];
     LL_CRP_model = [];
     ActionAccu_CRP_model = [];
@@ -330,7 +330,7 @@ function [] = main(subject_id) % AA081
                 if strcmp(inner_fit_list{j}, 'vanilla')
                      DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr' 'reward_prior'}; % Parameter field
                      file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model), ddm_mapping_string);
-                     filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/threshold/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model), ddm_mapping_string);
+                     filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/DDM/%s_%s_%s.csv'], subject_id, func2str(DCM.model), ddm_mapping_string);
                 elseif strcmp(inner_fit_list{j}, 'basic') || strcmp(inner_fit_list{j}, 'temporal')
                     DCM.MDP.decay = decay;
                     DCM.field  = {'reward_lr' 'inverse_temp' 'latent_lr', 'decay'}; % Parameter field
@@ -513,7 +513,7 @@ function [] = main(subject_id) % AA081
             %save(file_name)
             output = struct();
             latent_state_rewards = model_output.reward_probabilities;
-            filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/latent_states/%s_individual_%s_latent_states.csv'], subject_id, func2str(DCM.model));
+            filename_latent_states = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/latent_model/latent_states/%s_%s_%s_latent_states.csv'], subject_id, func2str(DCM.model), ddm_mapping_string);
             output.subject = subject_id;
             %output.latent_state_rewards = latent_state_rewards;
             output.num_states = size(latent_state_rewards,1);

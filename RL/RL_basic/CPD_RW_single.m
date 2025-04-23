@@ -98,7 +98,7 @@ for trial = 1:length(trials)
             
             if t == trial_length
                 outcome = outcome -1;
-                outcome(true_action + 1) = 1;
+                outcome(correct_choice + 1) = 1;
                 prediction_error = learning_rate*(outcome - choice_rewards);
                 choice_rewards = choice_rewards + prediction_error;
             end
