@@ -52,8 +52,8 @@ function [] = Identifiability(subject_id)
              if DCM.use_DDM
                 ddm_mappings = {
                     %struct('drift', 'action_prob', 'bias', 'action_prob');
-                    %struct('drift', '',           'bias', 'action_prob');
-                    struct('drift', 'action_prob', 'bias', '')
+                    struct('drift', '',           'bias', 'action_prob');
+                    %struct('drift', 'action_prob', 'bias', '')
                 };
                 else
                 ddm_mappings = {
