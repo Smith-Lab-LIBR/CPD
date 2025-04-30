@@ -71,12 +71,15 @@ for i = 1:length(DCM.field)
         if strcmp(field,'reward_lr')
             pE.(field) = log(DCM.MDP.reward_lr/(1-DCM.MDP.reward_lr));           
             pC{i,i}    = 2;
+         elseif strcmp(field,'new_reward_lr')
+             pE.(field) = log(DCM.MDP.latent_lr/(1-DCM.MDP.latent_lr));             
+             pC{i,i}    = 2;
          elseif strcmp(field,'latent_lr')
              pE.(field) = log(DCM.MDP.latent_lr/(1-DCM.MDP.latent_lr));             
              pC{i,i}    = 2;
          elseif strcmp(field,'new_latent_lr')
              pE.(field) = log(DCM.MDP.new_latent_lr/(1-DCM.MDP.new_latent_lr));             
-             pC{i,i}    = 20;
+             pC{i,i}    = 2;
 
         elseif strcmp(field,'decay')
              pE.(field) = log(DCM.MDP.decay/(1-DCM.MDP.decay));             
@@ -89,7 +92,7 @@ for i = 1:length(DCM.field)
             pC{i,i}    = 1;
         elseif strcmp(field,'reward_prior')
             pE.(field) = DCM.MDP.reward_prior;             
-            pC{i,i}    = 0.5;  
+            pC{i,i}    = 1;  
 
         %%% DDM parameters    
         elseif any(strcmp(field,{'drift_baseline', 'drift'}))
@@ -157,6 +160,8 @@ field = fieldnames(M.pE);
 for i = 1:length(field)
     if strcmp(field{i},'reward_lr')
         params.(field{i}) = 1/(1+exp(-P.(field{i}))); 
+     elseif strcmp(field{i},'new_reward_lr')
+         params.(field{i}) = 1/(1+exp(-P.(field{i})));   
      elseif strcmp(field{i},'latent_lr')
          params.(field{i}) = 1/(1+exp(-P.(field{i})));        
      elseif strcmp(field{i},'new_latent_lr')

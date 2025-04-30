@@ -20,7 +20,7 @@ function [latent_state_distribution, temporal_mass, max_me_idx] = adjust_latent_
     %if lr_new ~= 0
         
         %delta = lr_new *  (1 - latent_state_distribution(max_me_idx));
-   % else
+    %else
         delta = lr * (1 - latent_state_distribution(max_me_idx));
 
     %end

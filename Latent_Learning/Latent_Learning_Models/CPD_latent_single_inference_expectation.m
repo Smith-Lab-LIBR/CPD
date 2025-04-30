@@ -31,6 +31,8 @@ latent_learning_rate = params.latent_lr;
 latent_learning_rate_new = 0; % this parameter is not used anymore
 inverse_temp = params.inverse_temp;
 reward_prior = params.reward_prior;
+%latent_learning_rate_new = params.new_latent_lr;
+%new_learning_rate = params.new_reward_lr;
 if isfield(params, 'decay')
     decay_rate = params.decay;
 end
@@ -144,26 +146,37 @@ for trial = 1:length(trials)
                 else
                     starting_bias = params.starting_bias;
                 end
+                if settings.sim
+                    [simmed_rt, accepted_dot_motion] = simulate_DDM(drift, params.decision_thresh, params.nondecision_time, starting_bias, 1, .001, realmax);
+                    % accepted dot motion
+                    if accepted_dot_motion
+                        %time_points.result(t+1) = patch_action == correct_choice; % result column is 1 if accepted correct dot motion
+                        time_points.accepted_dot_motion(t+1) = 1;
+                    end
+                    
+                    time_points.accept_reject_rt(t+1) = simmed_rt;
+                else
                 % negative drift and lower bias entail greater probability of
                 % accepting dot motion, so we check if the person accepted, then
                 % flip the sign if necessary
-                if  current_trial.accepted_dot_motion(t+1) 
-                    drift = drift * -1;
-                    starting_bias = 1 - starting_bias;
-                end
-                
-                % make sure valid trial before factoring into log likelihood
-                if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
-                    dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
-                    dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
-                    dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
-                else 
-                    num_irregular_rts = num_irregular_rts + 1;
+                    if  time_points.accepted_dot_motion(t+1) 
+                        drift = drift * -1;
+                        starting_bias = 1 - starting_bias;
+                    end
+                    
+                    % make sure valid trial before factoring into log likelihood
+                    if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                        dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                        dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                        dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                    else 
+                        num_irregular_rts = num_irregular_rts + 1;
+                    end
                 end
 
             end
 
-            if t == trial_length
+            if (t == trial_length && ~settings.sim) || (settings.sim && (choice == result) && ~settings.use_DDM) || (settings.sim && accepted_dot_motion && settings.use_DDM)
                 % update latent_state_distribution
                 [latent_states_distribution, temporal_mass, max_evidence] = adjust_latent_distribution(latent_states_distribution, reward_probabilities, result, latent_learning_rate,0, 1,  timestep, temporal_mass, decay_type);
                 [new_latent_states_distribution, new_temporal_mass, max_evidence_new] = adjust_latent_distribution(new_latent_states_distribution, next_reward_probabilities, result, latent_learning_rate,latent_learning_rate_new, 1, timestep, new_temporal_mass, decay_type);
@@ -173,12 +186,13 @@ for trial = 1:length(trials)
                 outcome = outcome - 1;
                 outcome(result + 1) = 1;
                 prediction_error = learning_rate * c*(outcome - latent_state_rewards);
-                prediction_error_next = learning_rate * (outcome - new_latent_state_rewards);
+                prediction_error_next =learning_rate * (outcome - new_latent_state_rewards);
                 
                 % % update latent state reward predictions weighted by latent state distribution
                 latent_state_rewards = latent_state_rewards + latent_states_distribution' .* prediction_error;
                 new_latent_state_rewards = new_latent_state_rewards + new_latent_states_distribution' .* prediction_error_next;
                 timestep = timestep + 1;
+                
             end
          
         else      
@@ -222,21 +236,32 @@ for trial = 1:length(trials)
                     else
                         starting_bias = params.starting_bias;
                     end
+                    if settings.sim
+                        [simmed_rt, accepted_dot_motion] = simulate_DDM(drift, params.decision_thresh, params.nondecision_time, starting_bias, 1, .001, realmax);
+                        % accepted dot motion
+                        if accepted_dot_motion
+                           % current_trial.result(t+1) = patch_action == correct_choice; % result column is 1 if accepted correct dot motion
+                            time_points.accepted_dot_motion(t+1) = 1;
+                        end
+                        
+                        time_points.accept_reject_rt(t+1) = simmed_rt;
+                    else
                     % negative drift and lower bias entail greater probability of
                     % accepting dot motion, so we check if the person accepted, then
                     % flip the sign if necessary
-                    if  current_trial.accepted_dot_motion(t+1) 
-                        drift = drift * -1;
-                        starting_bias = 1 - starting_bias;
-                    end
-                    
-                    % make sure valid trial before factoring into log likelihood
-                    if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
-                        dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
-                        dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
-                        dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
-                    else 
-                        num_irregular_rts = num_irregular_rts + 1;
+                        if  current_trial.accepted_dot_motion(t+1) 
+                            drift = drift * -1;
+                            starting_bias = 1 - starting_bias;
+                        end
+                        
+                        % make sure valid trial before factoring into log likelihood
+                        if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                            dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                            dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                            dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                        else 
+                            num_irregular_rts = num_irregular_rts + 1;
+                        end
                     end
                 end
                 % update latent_state_distribution
@@ -252,18 +277,23 @@ for trial = 1:length(trials)
                 evidence_new = next_reward_probabilities(:,result+1);
    
                 columnIndices = true(1, 3);
-                columnIndices(previous_result_idx) = false;
+                if (previous_result_idx - 1) ~= result
+                    columnIndices(previous_result_idx) = false;
+                end
        
-                prediction_error = learning_rate * c* (outcome(:,columnIndices) - latent_state_rewards(max_evidence,columnIndices));
-                prediction_error_next = learning_rate * (outcome(:,columnIndices)  - new_latent_state_rewards(max_evidence_new,columnIndices));
-                latent_state_rewards(:,columnIndices) = latent_state_rewards(:,columnIndices) +  prediction_error;
-                new_latent_state_rewards(:,columnIndices) = new_latent_state_rewards(:,columnIndices) + prediction_error_next;
+                prediction_error = learning_rate * c* (outcome(:,columnIndices) - latent_state_rewards(:,columnIndices));
+                prediction_error_next = learning_rate * (outcome(:,columnIndices)  - new_latent_state_rewards(:,columnIndices));
+                latent_state_rewards(:,columnIndices) = latent_state_rewards(:,columnIndices) +  latent_states_distribution'.*prediction_error;
+                new_latent_state_rewards(:,columnIndices) = new_latent_state_rewards(:,columnIndices) + new_latent_states_distribution'.*prediction_error_next;
                 timestep = timestep + 1;    
             end
-          end
+        end
+       
+        
+        
        
         %if the prospective latent state is the max, we sub out our current latent state distribution and replace it with the new one
-        if t == trial_length && new_prob == max(new_latent_states_distribution)
+        if ((t == trial_length && ~settings.sim) || (settings.sim && (choice == result) && ~settings.use_DDM) || (settings.sim && accepted_dot_motion && settings.use_DDM)) && new_prob == max(new_latent_states_distribution)
        %if t == trial_length && new_prob > latent_learning_rate_new% max(new_latent_states_distribution)
            latent_states_distribution = new_latent_states_distribution;
             temporal_mass = new_temporal_mass;
@@ -278,7 +308,10 @@ for trial = 1:length(trials)
             test = 1;
            % lr_coef = lr_coef_max;
         end
-        if ((settings.sim == true && choice == result) || t == 2)
+        if ((settings.sim && settings.use_DDM && accepted_dot_motion) || t == 2)
+            time_points.result(t+1) = (choice == result);
+            break
+        elseif((settings.sim && (choice == result) && ~settings.use_DDM) || t == 2)
             time_points.result(t+1) = (choice == result);
             break
         end

@@ -175,7 +175,7 @@
 
 
 function [] = main(subject_id) % main('AA181')
-    DCM.use_DDM = false;
+    DCM.use_DDM = true;
     seed = subject_id(end-2:end);
     seed = str2double(seed);
     rng(seed);
@@ -207,7 +207,7 @@ function [] = main(subject_id) % main('AA181')
 
     %cd("/media/labs/rsmith/lab-members/nli/CPD/matlab_scripts/")
     %%%%% Set Priors %%%%%%%
-    reward_lr = 0.1;
+    reward_lr = 0.5;
     % latent_lr = 0.5;
     % new_latent_lr = 0.1;
     inverse_temp = 1;
@@ -257,12 +257,12 @@ function [] = main(subject_id) % main('AA181')
                 if j == 1
                      DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior'}; % Parameter field
                      file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_mat/%s_individual_%s_%s.mat'], subject_id, func2str(DCM.model),ddm_mapping_string);
-                     filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_csv/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model),ddm_mapping_string);
+                     filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/DDM/%s_individual_%s_%s.csv'], subject_id, func2str(DCM.model),ddm_mapping_string);
                 else
                     DCM.MDP.decay = decay;
                     DCM.field  = {'reward_lr' 'inverse_temp' 'reward_prior' 'decay' }; % Parameter field
                     file_name = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_mat/%s_individual_%s_%s_%s.mat'], subject_id, func2str(DCM.model), decay_type,ddm_mapping_string);
-                    filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/ind_csv/%s_individual_%s_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type,ddm_mapping_string);
+                    filename = sprintf([root 'rsmith/lab-members/rhodson/CPD/CPD_results/rl/DDM/%s_individual_%s_%s_%s.csv'], subject_id, func2str(DCM.model), decay_type,ddm_mapping_string);
                 end
                 %%% set up DDM 
                 if DCM.use_DDM
@@ -351,7 +351,7 @@ function [] = main(subject_id) % main('AA181')
                 accuracy_count = 0;
                 % compare action probabilities returned by the model to actual actions
                 % taken by participant (as we do in Loss function in CPD_fit
-                %rng(1)
+                rng(1)
                 for t = 1:length(trials)
                     trial = trials{t};
                     responses = trial.response;
@@ -388,7 +388,11 @@ function [] = main(subject_id) % main('AA181')
                 
                     end
                 end
-                
+                if DCM.use_DDM
+                    rt_pdf = model_output.dot_motion_rt_pdf;
+                    all_values = rt_pdf(~isnan(rt_pdf(:)));
+                    L = L + sum(log(all_values + eps));
+                end
                 %These are the final values. 
                 action_accuracy = average_action_probability/count;
                 accuracy = average_accuracy/accuracy_count;
@@ -397,14 +401,19 @@ function [] = main(subject_id) % main('AA181')
                 fprintf('Final Average choice probability: %f \n',action_accuracy)
                 fprintf('Final Average Accuracy: %f \n',accuracy)          
               
-                save(file_name)
+                %save(file_name)
                 output.subject = subject_id;
-                output.reward_lr = params.reward_lr;
-                output.inverse_temp = params.inverse_temp;
-                output.reward_prior = params.reward_prior;
-                if isfield(params, 'decay')
-                    output.decay = params.decay;
-                end            
+                flds = fieldnames(params);
+                for z = 1:numel(flds)
+                    output.(flds{z}) = params.(flds{z});
+                end
+                % output.subject = subject_id;
+                % output.reward_lr = params.reward_lr;
+                % output.inverse_temp = params.inverse_temp;
+                % output.reward_prior = params.reward_prior;
+                % if isfield(params, 'decay')
+                %     output.decay = params.decay;
+                % end            
             
                 output.patch_choice_avg_action_prob = action_accuracy;
                 output.patch_choice_model_acc = accuracy;

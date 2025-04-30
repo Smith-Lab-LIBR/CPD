@@ -80,7 +80,7 @@ for i = 1:length(DCM.field)
             pC{i,i}    = 0.5;  
         elseif strcmp(field,'decay')
             pE.(field) = log(DCM.MDP.decay/(1-DCM.MDP.decay));           
-            pC{i,i}    = 0.5; 
+            pC{i,i}    = 1; 
         %%% DDM parameters    
         elseif any(strcmp(field,{'drift_baseline', 'drift'}))
             pE.(field) = DCM.MDP.(field);             

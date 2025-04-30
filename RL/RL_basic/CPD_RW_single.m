@@ -80,23 +80,34 @@ for trial = 1:length(trials)
                 % negative drift and lower bias entail greater probability of
                 % accepting dot motion, so we check if the person accepted, then
                 % flip the sign if necessary
-                if  current_trial.accepted_dot_motion(t+1) 
-                    drift = drift * -1;
-                    starting_bias = 1 - starting_bias;
-                end
-                
-                % make sure valid trial before factoring into log likelihood
-                if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
-                    dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
-                    dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
-                    dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
-                else 
-                    num_irregular_rts = num_irregular_rts + 1;
+                if settings.sim
+                    [simmed_rt, accepted_dot_motion] = simulate_DDM(drift, params.decision_thresh, params.nondecision_time, starting_bias, 1, .001, realmax);
+                    % accepted dot motion
+                    if accepted_dot_motion
+                       % current_trial.result(t+1) = patch_action == correct_choice; % result column is 1 if accepted correct dot motion
+                        time_points.accepted_dot_motion(t+1) = 1;
+                    end
+                    
+                    time_points.accept_reject_rt(t+1) = simmed_rt;
+                else
+                    if  current_trial.accepted_dot_motion(t+1) 
+                        drift = drift * -1;
+                        starting_bias = 1 - starting_bias;
+                    end
+                    
+                    % make sure valid trial before factoring into log likelihood
+                    if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                        dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                        dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                        dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                    else 
+                        num_irregular_rts = num_irregular_rts + 1;
+                    end
                 end
 
             end
             
-            if t == trial_length
+            if ((t == trial_length && ~settings.sim) || (settings.sim && (choice == correct_choice) && ~settings.use_DDM) || (settings.sim && accepted_dot_motion && settings.use_DDM)) 
                 outcome = outcome -1;
                 outcome(correct_choice + 1) = 1;
                 prediction_error = learning_rate*(outcome - choice_rewards);
@@ -140,21 +151,33 @@ for trial = 1:length(trials)
                     else
                         starting_bias = params.starting_bias;
                     end
+
+                    if settings.sim
+                        [simmed_rt, accepted_dot_motion] = simulate_DDM(drift, params.decision_thresh, params.nondecision_time, starting_bias, 1, .001, realmax);
+                        % accepted dot motion
+                        if accepted_dot_motion
+                           % current_trial.result(t+1) = patch_action == correct_choice; % result column is 1 if accepted correct dot motion
+                            time_points.accepted_dot_motion(t+1) = 1;
+                        end
+                        
+                        time_points.accept_reject_rt(t+1) = simmed_rt;
+                    else
                     % negative drift and lower bias entail greater probability of
                     % accepting dot motion, so we check if the person accepted, then
                     % flip the sign if necessary
-                    if  current_trial.accepted_dot_motion(t+1) 
-                        drift = drift * -1;
-                        starting_bias = 1 - starting_bias;
-                    end
-                    
-                    % make sure valid trial before factoring into log likelihood
-                    if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
-                        dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
-                        dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
-                        dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
-                    else 
-                        num_irregular_rts = num_irregular_rts + 1;
+                        if  current_trial.accepted_dot_motion(t+1) 
+                            drift = drift * -1;
+                            starting_bias = 1 - starting_bias;
+                        end
+                        
+                        % make sure valid trial before factoring into log likelihood
+                        if current_trial.accept_reject_rt(t+1) >= settings.min_rt && current_trial.accept_reject_rt(t+1) <= settings.max_rt
+                            dot_motion_rt_pdf(t,trial) = wfpt(current_trial.accept_reject_rt(t+1) - params.nondecision_time, drift, params.decision_thresh, starting_bias);
+                            dot_motion_action_prob(t,trial) = integral(@(y) wfpt(y,drift,params.decision_thresh,starting_bias),0,settings.max_rt - params.nondecision_time); 
+                            dot_motion_model_acc(t,trial) =  dot_motion_action_prob(t,trial) > .5;
+                        else 
+                            num_irregular_rts = num_irregular_rts + 1;
+                        end
                     end
                 end
 
@@ -166,7 +189,10 @@ for trial = 1:length(trials)
                 choice_rewards(:, columnIndices) = choice_rewards(:, columnIndices) + prediction_error;
             end
         end
-        if ((settings.sim == true && choice == correct_choice) || t == 2)
+        if ((settings.sim && settings.use_DDM && accepted_dot_motion) || t == 2)
+            time_points.result(t+1) = (choice == correct_choice);
+            break
+        elseif((settings.sim && (choice == correct_choice) && ~settings.use_DDM) || t == 2)
             time_points.result(t+1) = (choice == correct_choice);
             break
         end
